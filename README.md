@@ -30,13 +30,13 @@ Es una **skill para Claude Code**, pero la guía ([`SKILL.md`](SKILL.md)) está 
 Para todos tus proyectos:
 
 ```bash
-git clone https://github.com/<usuario>/ui-demo-video ~/.claude/skills/ui-demo-video
+git clone https://github.com/gabjesus15/ui-demo-video ~/.claude/skills/ui-demo-video
 ```
 
 O solo para un proyecto:
 
 ```bash
-git clone https://github.com/<usuario>/ui-demo-video .claude/skills/ui-demo-video
+git clone https://github.com/gabjesus15/ui-demo-video .claude/skills/ui-demo-video
 ```
 
 Claude la usa sola cuando pides algo como *«hazme un video de cómo funciona el pedido»*. También puedes pedirla por nombre: *«usa la skill ui-demo-video»*.
