@@ -93,14 +93,15 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 #cap{position:absolute;left:50%;top:${SAFE === 'instagram' ? 118 : 34}px;transform:translateX(-50%);z-index:9;white-space:nowrap;padding:12px 26px 8px;border-radius:22px;background:#fff;
   box-shadow:0 18px 40px -18px rgba(30,35,120,.55);font-family:${brand.displayFont};font-size:46px;line-height:1;color:#101014;transition:opacity .35s;opacity:0}
 #cap.on{opacity:1}
-#cap .w{display:inline-block;margin-right:.22em;opacity:0;transform:translateY(55%);filter:blur(4px);animation:win .6s cubic-bezier(.16,1,.3,1) forwards}
+/* Sin filter:blur animado: es de lo más caro de pintar y bota cuadros. Subida + fundido se ve casi igual. */
+#cap .w{display:inline-block;margin-right:.22em;opacity:0;transform:translateY(60%);animation:win .55s cubic-bezier(.16,1,.3,1) forwards}
 #cap .w:last-child,.big .w:last-child{margin-right:0}
 #cap .k,.big .k{color:${brand.accent}}
-@keyframes win{to{opacity:1;transform:none;filter:none}}
+@keyframes win{to{opacity:1;transform:none}}
 .card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10}
 .big{font-family:${brand.displayFont};font-weight:400;font-size:108px;line-height:.9;text-align:center}
-.big .w{display:inline-block;margin-right:.2em;opacity:0;transform:translateY(40%) scale(.8);filter:blur(6px);will-change:transform,filter,opacity;animation:pop .7s cubic-bezier(.16,1,.3,1) forwards}
-@keyframes pop{to{opacity:1;transform:none;filter:none}}
+.big .w{display:inline-block;margin-right:.2em;opacity:0;transform:translateY(45%) scale(.82);will-change:transform,opacity;animation:pop .7s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes pop{to{opacity:1;transform:none}}
 /* Barridos con transform (capa ya dibujada) y no con clip-path, que se repinta en cada cuadro y da tirones. */
 #intro{background:${brand.accent};will-change:transform;transition:transform 1s cubic-bezier(.77,0,.18,1)}
 #intro.out{transform:translate3d(0,-101%,0)}
@@ -147,14 +148,17 @@ window.cam=(x,y,s,ry=0,rx=0)=>{$('cam').style.transform='translate3d('+x+'px,'+y
 window.camInstant=(t)=>{const c=$('cam');c.style.transition='none';c.style.transform=t;void c.offsetWidth;requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.transition='';}));};
 window.caption=(text,key)=>{const c=$('cap');c.classList.remove('on');setTimeout(()=>{if(!text)return;words(c,text,{key,step:70});c.classList.add('on');},text?280:0);};
 let active='main';
-window.swapToAlt=()=>{$('alt').style.opacity='1';$('alt').style.pointerEvents='auto';$('main').style.opacity='0';$('main').style.pointerEvents='none';active='alt';};
+/* Tras el fundido, el iframe de atrás se vacía: seguía vivo gastando pintado y CPU de su proceso. */
+window.swapToAlt=(unload)=>{$('alt').style.opacity='1';$('alt').style.pointerEvents='auto';$('main').style.opacity='0';$('main').style.pointerEvents='none';active='alt';if(unload)setTimeout(()=>{$('main').src='about:blank';},700);};
 const frameXY=(x,y)=>{const r=$(active).getBoundingClientRect();const k=r.width/390;return [r.left+x*k,r.top+y*k];};
 /* El dedo persigue su objetivo cuadro a cuadro: si la cámara o un panel se mueven, sigue encima del botón. */
-let fx=270,fy=1150,target=null,down=false;
-(function loop(){if(target){const [tx,ty]=frameXY(target[0],target[1]);fx+=(tx-fx)*0.14;fy+=(ty-fy)*0.14;}
-  $('finger').style.transform='translate3d('+fx+'px,'+fy+'px,0) scale('+(down?0.78:1)+')';requestAnimationFrame(loop);})();
-window.fingerTo=(x,y)=>{target=[x,y];$('finger').classList.add('on');};
-window.fingerHide=()=>$('finger').classList.remove('on');
+/* Solo se mide y se escribe mientras el dedo está visible y algo cambió (antes: en cada cuadro, siempre). */
+let fx=270,fy=1150,target=null,down=false,shown=false,last='';
+(function loop(){if(shown&&target){const [tx,ty]=frameXY(target[0],target[1]);fx+=(tx-fx)*0.14;fy+=(ty-fy)*0.14;
+  const t='translate3d('+fx.toFixed(2)+'px,'+fy.toFixed(2)+'px,0) scale('+(down?0.78:1)+')';if(t!==last){$('finger').style.transform=t;last=t;}}
+  requestAnimationFrame(loop);})();
+window.fingerTo=(x,y)=>{target=[x,y];shown=true;$('finger').classList.add('on');};
+window.fingerHide=()=>{shown=false;$('finger').classList.remove('on');};
 window.press=()=>{down=true;$('phone').classList.add('press');const r=document.createElement('div');r.className='ripple';r.style.left=fx+'px';r.style.top=fy+'px';$('stage').appendChild(r);
   setTimeout(()=>{down=false;$('phone').classList.remove('press');},170);setTimeout(()=>r.remove(),700);};
 window.celebrate=()=>{$('celebrate-bg').classList.add('on');
@@ -304,7 +308,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 		outro: () => page.evaluate(() => window.outro()),
 		fingerHide: () => page.evaluate(() => window.fingerHide()),
 		/** Fundido al iframe precargado (en vez de navegar: una navegación congela ~1 s). */
-		swapToAlt: async () => { await page.evaluate(() => window.swapToAlt()); frame = frames.alt; },
+		// { unload: false } si el guion vuelve a usar frames.main después del fundido.
+		swapToAlt: async ({ unload = true } = {}) => { await page.evaluate((u) => window.swapToAlt(u), unload); frame = frames.alt; },
 	};
 
 	/** Scroll con aceleración y frenado suaves, cuadro a cuadro (no uses behavior:'smooth'). */
@@ -366,7 +371,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 	const settings = await page.evaluate(() => window.startRec());
 	console.log('captura', JSON.stringify({ w: settings.width, h: settings.height, fps: settings.frameRate }));
 
+	// Colchón: el arranque y el cierre del grabador dejan un primer/último cuadro largo; así cae en fondo quieto.
+	await sleep(300);
 	await S.run(api);
+	await sleep(400);
 
 	await page.evaluate(() => window.stopRec());
 	const chunks = [];

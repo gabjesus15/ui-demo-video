@@ -72,6 +72,9 @@ El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTION
 | Tirón al terminar un barrido | `clip-path` se repinta en cada cuadro sobre toda la pantalla | Barridos con `transform` (deslizar, o un círculo chico que escala ×26) |
 | Barrido que arranca tarde | Una capa gigante (2400 px ×2) tarda en dibujarse | Círculo de 120 px escalado, nunca capas enormes |
 | Texto que aparece antes de tiempo | Un `opacity` fijo pisa la opacidad 0 inicial de la animación | Resaltar con `color` semitransparente, no con `opacity` |
+| Cuadros perdidos al entrar los títulos | `filter: blur()` animado es de lo más caro de pintar | Títulos con subida y fundido, sin desenfoque |
+| Trabajo de más durante toda la toma | El iframe de inicio sigue vivo detrás tras el fundido, y el dedo se medía en cada cuadro aunque estuviera oculto | `swapToAlt` vacía el iframe de atrás; el dedo solo se calcula cuando se ve y se mueve |
+| Primer o último cuadro largo | El arranque y el cierre del grabador | Colchón de 0,3–0,4 s al inicio y al final, sobre fondo quieto |
 
 **Incrustar la app en otro origen exige tres cosas.** Si falta alguna, la app se ve pero no reacciona:
 1. Quitar `X-Frame-Options` y `frame-ancestors`, solo en este navegador de grabación.
@@ -80,8 +83,9 @@ El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTION
 
 ## Cuadros por segundo y redes sociales
 
-- **30 fps es el valor por defecto y el recomendado.** En una PC con RTX 3070 se midió: la captura entrega 60, el codificador del navegador deja unos 57–58 y la escena real (app + efectos) unos 49–50. La GPU ya se usa sin configurar nada, así que activarla no ayuda.
-- **`--fps=60`** existe, pero graba en vivo y no garantiza 60 reales. Para 60 exactos habría que renderizar cuadro por cuadro con el reloj congelado, algo que esta skill todavía no hace.
+- **30 fps es el valor por defecto y el recomendado.** A 30 fps salen ~29 reales y, en un flujo de 47 s, un solo microcorte de ~0,25 s en plena acción: la propia app, al abrir un paso pesado.
+- **Medido en una PC con RTX 3070:** la captura entrega 60, el codificador del navegador deja unos 57–58 y la escena real ~48. La GPU ya se usa sin configurar nada, así que activarla no ayuda.
+- **`--fps=60`** existe y, con la escena alivianada, ya no deja cortes en plena acción, pero sigue en ~48 reales porque el techo lo pone el codificador. Para 60 exactos habría que renderizar cuadro por cuadro con el reloj congelado, algo que esta skill todavía no hace.
 - **Instagram, TikTok y WhatsApp** aceptan 60, pero suelen recomprimir a 30 al publicar: para redes, graba a 30.
 - **`--safe=instagram`:** baja los títulos y achica y sube el teléfono, para que la interfaz de Reels no los tape. Instagram tapa arriba (~12 %), abajo (~20 %: nombre, descripción, música) y el costado derecho (botones).
 - **`--size=720`:** fuerza el ancho final. Sirve para probar 60 fps a 720p (medido: ~50 fps reales, casi igual que en 1080p).
@@ -94,6 +98,7 @@ node <skill>/scripts/record-demo.cjs escenario.cjs out master --fps=60          
 ## Por qué el dedo toca donde debe
 
 - La posición se calcula en coordenadas del iframe y se convierte a la escena **en cada cuadro**, con `getBoundingClientRect` del iframe, que ya incluye la cámara. Si la cámara o un panel se mueven, el dedo sigue encima.
+- Tras `swapToAlt()` el iframe principal se vacía para no gastar recursos. Si el guion lo vuelve a usar, llama a `swapToAlt({ unload: false })`.
 - `tap` mide, viaja, **vuelve a medir** (el panel pudo terminar de subir), presiona y recién ahí hace `element.click()` del DOM, que no depende de la geometría con transforms.
 - Elementos en algo fijo (diálogos, barra inferior): nunca se scrollea para alcanzarlos.
 - **Hidratación:** un clic antes de que la página hidrate hace una navegación completa en vez de abrir el panel. Espera, o reintenta hasta que aparezca lo esperado sin volver a tocar mientras anima.
@@ -101,7 +106,7 @@ node <skill>/scripts/record-demo.cjs escenario.cjs out master --fps=60          
 
 ## Dirección de arte (lo que hizo que se viera bien)
 
-- **Títulos grandes**, en Bebas Neue o la tipografía de display de la marca, que entran palabra por palabra (subir, desenfoque a nítido). Una palabra clave va en el color de la marca, dentro de una píldora blanca para que se lea sobre cualquier pantalla.
+- **Títulos grandes**, en Bebas Neue o la tipografía de display de la marca, que entran palabra por palabra (suben y aparecen; sin desenfoque animado, que bota cuadros). Una palabra clave va en el color de la marca, dentro de una píldora blanca para que se lea sobre cualquier pantalla.
 - **Cámara:** `cam(x, y, escala)` con curva `cubic-bezier(.65,0,.35,1)` y 1,35 s. Evita los giros 3D (`rotY`/`rotX`) que después se enderezan: se ven como un brinco. Acercamientos de 1,1 a 1,2 para leer; teléfono completo (0,97) cuando importa ver todo (el carrito con el total).
 - **Ritmo:** 40–50 s en total, 0,5–0,9 s entre acciones y un respiro después de cada cambio de pantalla. Dedo: 0,6–0,7 s de viaje.
 - **Final emocional:** el fondo verde se abre en círculo desde el teléfono, confeti desde las dos esquinas y el centro, y «¡Y listo!» enorme arriba con el teléfono más abajo para que no se tapen.

@@ -102,7 +102,7 @@ API del guion:
 | `tap(locator, { travel, hold, click })` | El dedo viaja, se vuelve a medir, presiona y hace clic |
 | `typeInto(locator, texto)` | Toca el campo y escribe letra por letra (también en campos con máscara) |
 | `smoothScroll(dy, ms)` | Scroll con aceleración y frenado, cuadro a cuadro |
-| `swapToAlt()` | Fundido a la pantalla precargada, sin navegar |
+| `swapToAlt({ unload })` | Fundido a la pantalla precargada, sin navegar; vacía la de atrás salvo `unload: false` |
 | `intro()` / `introOut()` / `celebrate()` / `outro()` | Escenas de marca |
 | `frame()`, `frames.main`, `frames.alt`, `sleep(ms)` | Acceso a los iframes de la app |
 
@@ -120,7 +120,7 @@ La regla de oro: **si tu app escribe en una base real, ninguna escritura del rec
 
 **¿Funciona con cualquier framework?** Sí. Graba cualquier app web que corra en el navegador. Los detalles de Next.js (acciones de servidor, indicador de desarrollo) son opcionales.
 
-**¿Por qué 30 fps y no 60?** Grabando en vivo, el codificador y la escena no sostienen 60 reales (se midieron ~49), y Instagram, TikTok y WhatsApp suelen recomprimir a 30 al publicar. Para redes, 30 es lo mejor. `--fps=60` existe para quien lo necesite.
+**¿Por qué 30 fps y no 60?** Grabando en vivo, el codificador del navegador no sostiene 60 reales (se midieron ~48), y Instagram, TikTok y WhatsApp suelen recomprimir a 30 al publicar. Para redes, 30 es lo mejor. `--fps=60` existe para quien lo necesite.
 
 **¿Y para Instagram?** Usa `--safe=instagram`: los títulos y el teléfono quedan fuera de las zonas que tapa la interfaz de Reels.
 
