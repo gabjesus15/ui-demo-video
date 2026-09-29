@@ -83,73 +83,75 @@ module.exports = {
 
 	/**
 	 * Guion de la toma. `api`:
-	 *   cam(x, y, escala, rotY?, rotX?)  y positivo baja el teléfono; escala 1.1–1.2 = acercamiento
+	 *   cam(x, y, escala, { ms })   y positivo baja el teléfono; escala 1.1–1.2 = acercamiento; ms = duración (1000)
+	 *   focus(locator, { scale, at })   encuadra un elemento solo (at: 0 arriba … 1 abajo)
 	 *   caption(texto, [índices resaltados])   caption('') lo oculta
 	 *   tap(locator|selector, { travel, hold, click })   typeInto(locator, texto)
 	 *   smoothScroll(dy, ms)   swapToAlt()   frame()   frames.main / frames.alt
 	 *   intro()  introOut()  celebrate()  outro()  fingerHide()  sleep(ms)
+	 * Con el motor render, sleep() es tiempo del VIDEO: las esperas reales (red, compilación) no se ven.
 	 */
 	async run(api) {
 		const { sleep, cam, caption, tap, typeInto, smoothScroll } = api;
 		const f = () => api.frame();
 
 		// Intro de marca
-		await sleep(350);
+		await sleep(250);
 		await api.intro();
-		await sleep(1900);
+		await sleep(1500);
 		await api.introOut();
 		// Entrada en un solo movimiento: un giro 3D que después se endereza se ve como un brinco.
-		await cam(0, 60, 0.84);
-		await sleep(1250);
+		await cam(0, 60, 0.84, { ms: 1100 });
+		await sleep(950);
 
 		// Inicio → carta: se "toca" el enlace sin navegar y se pasa al iframe precargado
 		await caption('Abre tu link', [2]);
-		await sleep(800);
+		await sleep(550);
 		await tap(api.frames.main.getByRole('link', { name: /Ver (el )?men[uú]/i }), { click: false });
-		await sleep(220);
+		await sleep(120);
 		await api.swapToAlt();
-		await sleep(500);
+		await sleep(380);
 
 		await caption('Mira la carta', [2]);
 		await cam(0, 150, 1.12);
-		await sleep(900);
-		await smoothScroll(420, 1500);
+		await sleep(650);
+		await smoothScroll(420, 1200);
 
 		await caption('Elige tu pizza', [2]);
 		await tap(f().getByText('Pizza Margarita', { exact: true }).first());
-		await sleep(450);
+		await sleep(300);
 		await cam(0, -110, 1.1); // el panel del producto sube desde abajo
-		await sleep(900);
+		await sleep(650);
 		await tap(f().getByRole('button', { name: /^Agregar/ }));
-		await sleep(900);
+		await sleep(650);
 
 		await caption('Revisa tu pedido', [2]);
 		await cam(0, -230, 1.18);
-		await sleep(700);
-		await tap(f().getByRole('button', { name: /^Carrito/ }), { travel: 600 });
-		await sleep(400);
+		await sleep(500);
+		await tap(f().getByRole('button', { name: /^Carrito/ }), { travel: 500 });
+		await sleep(300);
 		await cam(0, 26, 0.97); // teléfono completo: se ven los productos y el total
-		await sleep(1500);
+		await sleep(1200);
 		await tap(f().getByRole('button', { name: 'Ir a pagar' }));
-		await sleep(900);
+		await sleep(650);
 
 		await caption('Confirma y listo', [2]);
-		await cam(0, 40, 1.05);
-		await sleep(500);
+		await api.focus(f().getByPlaceholder('Tu nombre'), { scale: 1.05, at: 0.45 }); // encuadre automático
+		await sleep(350);
 		await typeInto(f().getByPlaceholder('Tu nombre'), 'Camila Rojas'); // datos INVENTADOS
 		await typeInto(f().getByPlaceholder('Teléfono'), '+56 9 5555 0199');
-		await sleep(300);
+		await sleep(200);
 		await tap(f().getByRole('button', { name: 'Confirmar pedido' }));
 		await f().getByText('¡Pedido recibido!').waitFor({ timeout: 15000 }); // confirmación REAL, pedido FALSO
 		await api.fingerHide();
 		await caption('');
-		await sleep(900);
+		await sleep(700);
 
 		// Celebración y cierre
-		await cam(0, 250, 0.66);
+		await cam(0, 250, 0.66, { ms: 900 });
 		await api.celebrate();
-		await sleep(3000);
+		await sleep(2500);
 		await api.outro();
-		await sleep(3600);
+		await sleep(3000);
 	},
 };

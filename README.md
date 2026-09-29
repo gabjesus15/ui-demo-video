@@ -4,7 +4,7 @@
 
 Es una **skill para Claude Code**, pero la guía ([`SKILL.md`](SKILL.md)) está escrita para que cualquier IA o persona pueda seguirla.
 
-> 🇬🇧 **English summary** — A Claude Code skill (and a plain-Markdown guide for any AI) to record vertical 9:16 demo videos of a real web app: phone mockup, animated finger taps, camera zooms, word-by-word captions, confetti on success and a branded outro. Real UI, fake data: every write is blocked or answered with a fake response so no real orders, payments or messages are created. No ffmpeg needed — it uses Edge/Chrome tab capture + `MediaRecorder` (H.264). Includes QA tools (frame-gap measurement, frame grids), a lightweight web version and SEO guidance (`VideoObject`). Docs are in Spanish.
+> 🇬🇧 **English summary** — A Claude Code skill (and a plain-Markdown guide for any AI) to record vertical 9:16 demo videos of a real web app: phone mockup, animated finger taps, camera zooms, word-by-word captions, confetti on success and a branded outro. Real UI, fake data: every write is blocked or answered with a fake response so no real orders, payments or messages are created. No ffmpeg needed — a frame-by-frame renderer with a virtual clock (rAF, timers, CSS/Web Animations) encodes exact 60 fps H.264 via WebCodecs; a real-time tab-capture mode is also available. Includes QA tools (frame-gap measurement, frame grids), a lightweight web version and SEO guidance (`VideoObject`). Docs are in Spanish.
 
 ---
 
@@ -12,7 +12,7 @@ Es una **skill para Claude Code**, pero la guía ([`SKILL.md`](SKILL.md)) está 
 
 - **Es tu app real, no una maqueta.** El video muestra tus pantallas de verdad dentro de un iframe.
 - **Datos falsos, nunca reales.** Todo lo que no sea lectura se **bloquea por defecto**. El envío final (pedido, pago, registro) se responde en falso desde el grabador, así tu app muestra su confirmación real sin tocar la base de datos. WhatsApp, correos y pasarelas quedan cortados.
-- **Fluido de verdad.** Resuelve los tirones típicos de grabar una app en desarrollo: la app corre en otro proceso, hay un ensayo previo sin grabar y las pantallas se precargan. La guía explica cada causa y su solución.
+- **60 fps exactos.** El motor render congela el reloj de la escena y de la app, avanza cuadro a cuadro y codifica cada foto con WebCodecs: cero cuadros perdidos aunque la PC esté ocupada, y las esperas de red de tu app no se ven. También hay un motor en vivo (`--live`).
 - **Toques precisos.** El dedo sigue al botón en cada cuadro aunque la cámara o un panel se muevan.
 - **Sin ffmpeg ni editores.** Solo Node, Playwright y Edge o Chrome.
 
@@ -51,13 +51,13 @@ Clona el repo donde quieras y dale a la IA el archivo [`SKILL.md`](SKILL.md) com
    ```bash
    cp ~/.claude/skills/ui-demo-video/scripts/example-scenario.cjs scripts/video/mi-demo.cjs
    ```
-2. **Graba la versión maestra** (1080×1920, 30 fps) desde la raíz de tu proyecto:
+2. **Graba la versión maestra** (1080×1920, 60 fps exactos) desde la raíz de tu proyecto:
    ```bash
    node ~/.claude/skills/ui-demo-video/scripts/record-demo.cjs scripts/video/mi-demo.cjs out master
    ```
    Al final revisa el bloque `--- red ---`: tiene que decir que el envío fue **FALSO** y no mostrar escrituras inesperadas.
 
-   Opciones: `--safe=instagram` (zonas seguras de Reels y TikTok), `--fps=60` (a 60 en vivo, que en la práctica da ~49 reales), `--size=720` (ancho final) y `--bitrate=…`.
+   Opciones: `--safe=instagram` (zonas seguras de Reels y TikTok), `--fps=30`, `--tempo=0.9` (todo un 10 % más rápido), `--size=720` (ancho final), `--bitrate=…` y `--live` (motor en tiempo real). Tarda ~3× lo que dura el video.
 3. **Revisa la calidad:**
    ```bash
    node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs gaps out/mi-demo.mp4          # tirones
@@ -97,14 +97,16 @@ API del guion:
 
 | Función | Qué hace |
 |---|---|
-| `cam(x, y, escala, rotY?, rotX?)` | Mueve la cámara con una curva suave. Con `y > 0` baja el teléfono; con escala 1,1 a 1,2 se acerca |
+| `cam(x, y, escala, { ms }?)` | Mueve la cámara con una curva que arranca rápido y frena suave (1 s). Con `y > 0` baja el teléfono; con escala 1,1 a 1,2 se acerca |
+| `focus(locator, { scale, at })` | Encuadra un elemento solo: calcula la cámara para que quede a la altura `at` (0 arriba, 1 abajo) |
 | `caption(texto, [índices])` | Muestra un título grande con palabras resaltadas; `caption('')` lo oculta |
 | `tap(locator, { travel, hold, click })` | El dedo viaja, se vuelve a medir, presiona y hace clic |
 | `typeInto(locator, texto)` | Toca el campo y escribe letra por letra (también en campos con máscara) |
 | `smoothScroll(dy, ms)` | Scroll con aceleración y frenado, cuadro a cuadro |
-| `swapToAlt({ unload })` | Fundido a la pantalla precargada, sin navegar; vacía la de atrás salvo `unload: false` |
+| `swapToAlt({ unload })` | Pasa a la pantalla precargada con un «push», sin navegar; vacía la de atrás salvo `unload: false` |
 | `intro()` / `introOut()` / `celebrate()` / `outro()` | Escenas de marca |
-| `frame()`, `frames.main`, `frames.alt`, `sleep(ms)` | Acceso a los iframes de la app |
+| `frame()`, `frames.main`, `frames.alt` | Acceso a los iframes de la app |
+| `sleep(ms)` | Espera tiempo **del video** (con render, las esperas reales de la app no se ven) |
 
 ## Seguridad
 
@@ -120,11 +122,15 @@ La regla de oro: **si tu app escribe en una base real, ninguna escritura del rec
 
 **¿Funciona con cualquier framework?** Sí. Graba cualquier app web que corra en el navegador. Los detalles de Next.js (acciones de servidor, indicador de desarrollo) son opcionales.
 
-**¿Por qué 30 fps y no 60?** Grabando en vivo, el codificador del navegador no sostiene 60 reales (se midieron ~48), y Instagram, TikTok y WhatsApp suelen recomprimir a 30 al publicar. Para redes, 30 es lo mejor. `--fps=60` existe para quien lo necesite.
+**¿Son 60 fps de verdad?** Sí, con el motor render: cada cuadro se dibuja con el reloj detenido y se codifica aparte, así que no se pierde ninguno (medido: 2238 cuadros en 37,3 s). Instagram, TikTok y WhatsApp suelen recomprimir a 30 al publicar; bajar de 60 a 30 es limpio.
+
+**¿Por qué tarda más que el video?** Porque fotografía cada cuadro: ~50 ms por cuadro, unas 3 veces la duración. A cambio, si la PC está ocupada solo tarda más; el video no sale con tirones.
 
 **¿Y para Instagram?** Usa `--safe=instagram`: los títulos y el teléfono quedan fuera de las zonas que tapa la interfaz de Reels.
 
-**El video tiene tirones.** Mide con `qa-tools.cjs gaps`. Si aparecen en plena acción, revisa que tengas `warmUp`, que la navegación sea con `swapToAlt` y que la escena y la app estén en orígenes distintos. La tabla de causas está en `SKILL.md`.
+**El video tiene tirones.** Con render no debería: mide con `qa-tools.cjs gaps`. Con `--live`, revisa que tengas `warmUp`, que la navegación sea con `swapToAlt` y que la escena y la app estén en orígenes distintos. La tabla de causas está en `SKILL.md`.
+
+**Algo de mi app se ve acelerado.** El reloj virtual controla animaciones, temporizadores y `requestAnimationFrame`, pero no videos, GIF ni scroll suave nativo. Graba esa toma con `--live`.
 
 **La app se ve dentro del teléfono pero no responde.** El documento se sirve desde el grabador y la página no hidrata. La solución está en la sección «Incrustar la app en otro origen» de `SKILL.md`: quitar cabeceras de compresión y desactivar *Local Network Access*.
 
@@ -137,7 +143,8 @@ ui-demo-video/
 ├── SKILL.md                    guía completa (la lee Claude u otra IA)
 ├── README.md
 └── scripts/
-    ├── record-demo.cjs         motor de grabación
+    ├── record-demo.cjs         motor de grabación (render y live)
+    ├── virtual-time.cjs        reloj virtual del motor render
     ├── example-scenario.cjs    escenario de ejemplo comentado
     └── qa-tools.cjs            tirones, fotogramas, versión web y portada
 ```

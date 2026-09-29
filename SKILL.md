@@ -11,8 +11,8 @@ cada problema de esta guía pasó de verdad y cada solución está probada.
 
 ## Qué se obtiene
 
-- **Formato:** vertical 9:16. Maestra de 1080×1920 a 30 fps para redes y versión web de 720×1280 (~7–8 MB por 45 s).
-- **Estructura** (35–50 s):
+- **Formato:** vertical 9:16. Maestra de 1080×1920 a **60 fps exactos** (motor render) y versión web de 720×1280 (~7–8 MB por 40 s).
+- **Estructura** (35–45 s):
   1. Intro de marca: fondo de color, títulos palabra por palabra.
   2. El teléfono entra con la app **real** dentro.
   3. Pasos con acercamientos, un título por paso y un «dedo» que viaja y presiona cada botón. Los campos se escriben letra por letra.
@@ -44,6 +44,28 @@ cada problema de esta guía pasó de verdad y cada solución está probada.
 4. Lee el bloque «--- red ---» del log: tiene que decir que los envíos fueron **FALSOS** y no mostrar escrituras inesperadas.
 5. Control de calidad (ver abajo), luego la versión web y la portada con `qa-tools.cjs`.
 
+Opciones: `--fps=30|60`, `--safe=instagram`, `--tempo=0.9` (todo un 10 % más rápido), `--size=720`, `--bitrate=…` y `--live`.
+
+## Los dos motores
+
+| | **render** (por defecto) | **live** (`--live`) |
+|---|---|---|
+| Cómo graba | Congela el reloj de la escena y de la app, avanza de a 1/60 s, fotografía cada cuadro y lo codifica con WebCodecs (H.264 + mp4-muxer) | Captura la pestaña en tiempo real con `MediaRecorder` |
+| Fluidez | 60 fps exactos, cero cuadros perdidos | ~29 reales a 30 fps y ~48 a 60 fps; depende de la carga de la PC |
+| Esperas de la app (red, compilación) | No se ven: el tiempo del video no corre mientras la app espera | Se ven como microcortes |
+| Tiempo de grabación | ~3× lo que dura el video (37 s de video en 2 min) | Lo que dura el video |
+| Si la PC está ocupada (juegos, llamadas) | Tarda más, pero el video sale igual | El video sale con tirones |
+
+**Cómo funciona render** (`scripts/virtual-time.cjs`): se inyecta en cada documento, antes que sus scripts, un reloj virtual.
+`requestAnimationFrame`, `setTimeout`/`setInterval` (desde 5 ms), `performance.now` y `Date.now` pasan a ser virtuales.
+Las animaciones CSS y Web Animations se pausan y se posicionan en cada cuadro con `getAnimations()`; al llegar al final
+se cierran con `finish()` para que disparen `transitionend`/`finish` (sin eso, los paneles que esperan su animación no se cierran).
+Mientras el motor fotografía, el guion corre en paralelo: `sleep(ms)` espera tiempo **del video**, no tiempo real.
+
+**Qué no controla el reloj virtual:** videos y GIF dentro de la app, `scroll-behavior: smooth` nativo (el motor lo desactiva)
+y animaciones ligadas al scroll (`animation-timeline`), que igual se ven bien porque dependen del scroll y no del tiempo.
+Si algo de la app se ve acelerado, usa `--live` para esa toma.
+
 ## Seguridad: nunca crear datos reales
 
 El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTIONS. Desde el escenario solo se puede:
@@ -64,7 +86,7 @@ El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTION
 | Congelamiento al tocar o abrir pantallas | La app y la escena comparten proceso y el trabajo de la app frena la cámara | Escena en `127.0.0.1` y app en `localhost`: sitios distintos, así que la app va en un iframe de otro proceso |
 | ~1 s congelado al navegar | La navegación recarga, compila e hidrata | La segunda pantalla queda **precargada** en otro iframe (`urls.alt`) y se pasa con un fundido (`swapToAlt`) |
 | Congelamientos la primera vez | Código e imágenes aún sin compilar ni descargar | `warmUp`: se recorre el flujo entero sin grabar y se pre-scrollea cada iframe |
-| Cuadros perdidos | 60 fps a 1080p satura el codificador (daba ~41 fps reales) | 30 fps |
+| Cuadros perdidos | (live) 60 fps a 1080p satura el codificador en vivo (daba ~41 fps reales) | Motor render (60 exactos) o, en live, 30 fps |
 | Ritmo irregular en algunos reproductores | La captura solo emite cuadros cuando algo cambia | Un píxel casi invisible cambia en cada cuadro (`#tick`) |
 | Scroll a saltos | `behavior: 'smooth'` depende del navegador | `smoothScroll`: rAF con curva de aceleración y frenado |
 | Tirón al aparecer el teléfono | Primera vez que se dibuja la app dentro de la escena | El motor lo deja dibujado antes de grabar (posición final, tapado por la intro) |
@@ -75,6 +97,8 @@ El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTION
 | Cuadros perdidos al entrar los títulos | `filter: blur()` animado es de lo más caro de pintar | Títulos con subida y fundido, sin desenfoque |
 | Trabajo de más durante toda la toma | El iframe de inicio sigue vivo detrás tras el fundido, y el dedo se medía en cada cuadro aunque estuviera oculto | `swapToAlt` vacía el iframe de atrás; el dedo solo se calcula cuando se ve y se mueve |
 | Primer o último cuadro largo | El arranque y el cierre del grabador | Colchón de 0,3–0,4 s al inicio y al final, sobre fondo quieto |
+| (render) Cada cuadro tardaba 2 s | Chrome frena `requestAnimationFrame` en iframes de otro origen sin interacción, y el motor esperaba que pintaran | Solo la escena espera su pintado; al pintar, compone lo último que entregaron los iframes |
+| (render) Microcortes de la app | Red, compilación o un paso pesado de la app | No existen: el tiempo del video no avanza mientras la app trabaja |
 
 **Incrustar la app en otro origen exige tres cosas.** Si falta alguna, la app se ve pero no reacciona:
 1. Quitar `X-Frame-Options` y `frame-ancestors`, solo en este navegador de grabación.
@@ -83,16 +107,16 @@ El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTION
 
 ## Cuadros por segundo y redes sociales
 
-- **30 fps es el valor por defecto y el recomendado.** A 30 fps salen ~29 reales y, en un flujo de 47 s, un solo microcorte de ~0,25 s en plena acción: la propia app, al abrir un paso pesado.
-- **Medido en una PC con RTX 3070:** la captura entrega 60, el codificador del navegador deja unos 57–58 y la escena real ~48. La GPU ya se usa sin configurar nada, así que activarla no ayuda.
-- **`--fps=60`** existe y, con la escena alivianada, ya no deja cortes en plena acción, pero sigue en ~48 reales porque el techo lo pone el codificador. Para 60 exactos habría que renderizar cuadro por cuadro con el reloj congelado, algo que esta skill todavía no hace.
-- **Instagram, TikTok y WhatsApp** aceptan 60, pero suelen recomprimir a 30 al publicar: para redes, graba a 30.
+- **Motor render: 60 fps por defecto, exactos.** Medido: 2238 cuadros en 37,3 s, sin huecos, en 2 minutos (13 ms de reloj + 38 ms de foto por cuadro).
+- **Instagram, TikTok y WhatsApp** aceptan 60 y suelen recomprimir a 30 al publicar; bajar de 60 a 30 es limpio (un cuadro sí, uno no). Si prefieres controlar tú la versión de 30, usa `--fps=30`.
 - **`--safe=instagram`:** baja los títulos y achica y sube el teléfono, para que la interfaz de Reels no los tape. Instagram tapa arriba (~12 %), abajo (~20 %: nombre, descripción, música) y el costado derecho (botones).
-- **`--size=720`:** fuerza el ancho final. Sirve para probar 60 fps a 720p (medido: ~50 fps reales, casi igual que en 1080p).
+- **Motor live (`--live`):** a 30 fps salen ~29 reales; a 60, ~48, porque el techo lo pone el codificador en vivo (medido en una PC con RTX 3070).
+- **`VT_PROFILE=1`** muestra cuánto tarda cada paso por cuadro (reloj, foto, codificación, cada iframe).
 
 ```bash
+node <skill>/scripts/record-demo.cjs escenario.cjs out master                    # 1080×1920 a 60 fps exactos
 node <skill>/scripts/record-demo.cjs escenario.cjs out master --safe=instagram   # Reels / TikTok
-node <skill>/scripts/record-demo.cjs escenario.cjs out master --fps=60            # a 60, en vivo (~49 reales)
+node <skill>/scripts/record-demo.cjs escenario.cjs out master --live --fps=30    # motor en vivo
 ```
 
 ## Por qué el dedo toca donde debe
@@ -107,8 +131,9 @@ node <skill>/scripts/record-demo.cjs escenario.cjs out master --fps=60          
 ## Dirección de arte (lo que hizo que se viera bien)
 
 - **Títulos grandes**, en Bebas Neue o la tipografía de display de la marca, que entran palabra por palabra (suben y aparecen; sin desenfoque animado, que bota cuadros). Una palabra clave va en el color de la marca, dentro de una píldora blanca para que se lea sobre cualquier pantalla.
-- **Cámara:** `cam(x, y, escala)` con curva `cubic-bezier(.65,0,.35,1)` y 1,35 s. Evita los giros 3D (`rotY`/`rotX`) que después se enderezan: se ven como un brinco. Acercamientos de 1,1 a 1,2 para leer; teléfono completo (0,97) cuando importa ver todo (el carrito con el total).
-- **Ritmo:** 40–50 s en total, 0,5–0,9 s entre acciones y un respiro después de cada cambio de pantalla. Dedo: 0,6–0,7 s de viaje.
+- **Cámara:** `cam(x, y, escala, { ms })` con curva `cubic-bezier(.33,0,.12,1)` (arranca rápido y frena largo) y 1 s; con `{ ms }` cambias un movimiento puntual. `focus(elemento, { scale, at })` calcula el encuadre solo. Evita los giros 3D (`rotY`/`rotX`) que después se enderezan: se ven como un brinco. Acercamientos de 1,1 a 1,2 para leer; teléfono completo (0,97) cuando importa ver todo (el carrito con el total).
+- **Ritmo:** 35–40 s en total, 0,3–0,65 s entre acciones y un respiro después de cada cambio de pantalla. Dedo: ~0,5 s de viaje. `--tempo=0.9` acelera todo sin tocar el guion.
+- **Transiciones:** al cambiar el título, las palabras viejas salen hacia arriba, la píldora se ajusta al ancho nuevo y las nuevas suben desde una máscara. El paso a la pantalla precargada es un «push» (entra desde la derecha), no un fundido.
 - **Final emocional:** el fondo verde se abre en círculo desde el teléfono, confeti desde las dos esquinas y el centro, y «¡Y listo!» enorme arriba con el teléfono más abajo para que no se tapen.
 - **Honestidad:** todo lo que se ve es la app real; los datos son inventados. No agregues pantallas que la app no tiene.
 
@@ -118,7 +143,7 @@ node <skill>/scripts/record-demo.cjs escenario.cjs out master --fps=60          
 node <skill>/scripts/qa-tools.cjs gaps out/mi-demo.mp4
 node <skill>/scripts/qa-tools.cjs frames out/mi-demo.mp4 out/frames 48
 ```
-- **`gaps`:** lista los huecos entre fotogramas mayores a 100 ms. En plena acción deberían quedar pocos y menores a 0,25 s; en la intro y el cierre (pantallas quietas) no importan. Mira también `fpsReal`, que debería ser ~28.
+- **`gaps`:** lista los huecos entre fotogramas mayores a 100 ms. En plena acción deberían quedar pocos y menores a 0,25 s; en la intro y el cierre (pantallas quietas) no importan. Mira también `fpsReal`: ~59 con render a 60 fps, ~28 con live a 30. Un hueco en el segundo 0,1 es el arranque del reproductor, no del archivo.
 - **`frames`:** revisa en una grilla que el dedo caiga sobre cada botón, que los títulos no tapen lo importante y que ninguna pantalla aparezca a medio cargar.
 - Los tiempos de cada paso salen de los nombres de esos fotogramas (`f12-19.3s.jpg`). Sirven para capítulos en la web.
 

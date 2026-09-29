@@ -1,7 +1,7 @@
 {
   "name": "ui-demo-video",
-  "version": "1.0.0",
-  "description": "Skill de Claude Code para grabar videos demo verticales (9:16, MP4 H.264) de una app web real, con datos falsos y sin ffmpeg.",
+  "version": "2.0.0",
+  "description": "Skill de Claude Code para grabar videos demo verticales (9:16, MP4 H.264 a 60 fps exactos) de una app web real, con datos falsos y sin ffmpeg.",
   "license": "MIT",
   "private": true,
   "keywords": ["claude-code", "skill", "playwright", "demo-video", "screen-recording", "product-video", "reel"],
