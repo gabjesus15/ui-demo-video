@@ -2,7 +2,7 @@
 /**
  * Motor de grabación de videos demo verticales (reel 9:16) de una app web real.
  *
- *   node record-demo.cjs <escenario.cjs> <carpeta-salida> [master|web]
+ *   node record-demo.cjs <escenario.cjs> <carpeta-salida> [master|web] [--fps=60] [--size=720] [--safe=instagram] [--bitrate=…]
  *
  *   master → 1080×1920, 30 fps, ~6 Mbps (redes sociales)
  *   web    → 720×1280, 30 fps, ~1.4 Mbps (landing). Mejor: sacar la web de la master con downscale.cjs.
@@ -22,9 +22,11 @@ const path = require('path');
 // Playwright del proyecto actual o, si no hay, el instalado junto a la skill (npm install en su carpeta).
 const { chromium } = require(require.resolve('playwright', { paths: [process.cwd(), path.join(__dirname, '..')] }));
 
-const [scenarioPath, OUT, modeArg] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const flags = Object.fromEntries(argv.filter((a) => a.startsWith('--')).map((a) => a.slice(2).split('=')));
+const [scenarioPath, OUT, modeArg] = argv.filter((a) => !a.startsWith('--'));
 if (!scenarioPath || !OUT) {
-	console.error('Uso: node record-demo.cjs <escenario.cjs> <carpeta-salida> [master|web]');
+	console.error('Uso: node record-demo.cjs <escenario.cjs> <carpeta-salida> [master|web] [--fps=60] [--size=720] [--safe=instagram] [--bitrate=12000000]');
 	process.exit(1);
 }
 const S = require(path.resolve(scenarioPath));
@@ -33,9 +35,17 @@ const MODE = modeArg === 'web' ? 'web' : 'master';
 // Escena en CSS px; la resolución real sale del device scale factor.
 const W = 540;
 const H = 960;
-const DSF = MODE === 'web' ? 4 / 3 : 2;
-const FPS = 30; // 60 fps a 1080p satura el codificador y bota cuadros: 30 es más fluido en la práctica.
-const BITRATE = MODE === 'web' ? 1_400_000 : 6_000_000;
+// Ancho final: 1080 (master) o 720 (web); --size=720 fuerza el ancho (p. ej. 720 a 60 fps, que el codificador sostiene mejor).
+const DSF = flags.size ? Number(flags.size) / W : MODE === 'web' ? 4 / 3 : 2;
+// 30 por defecto: a 1080p, 60 fps puede saturar el codificador y botar cuadros (mide con qa-tools gaps).
+// Se cambia con --fps=60 o `video.fps` en el escenario; el bitrate sube en proporción.
+const FPS = Number(flags.fps || S.video?.fps || 30);
+// Zonas seguras de redes: Instagram tapa arriba (~12 %, «Reels» y cámara), abajo (~20 %, nombre,
+// descripción, música) y el costado derecho (botones). Se bajan los títulos y la escena se achica y sube.
+const SAFE = flags.safe || S.video?.safe || null;
+// La escena (teléfono) se achica y sube un poco para quedar fuera de las franjas que tapa Instagram.
+const PERSP_SAFE = SAFE === 'instagram' ? ';transform:translate(-14px,-34px) scale(.84);transform-origin:50% 42%' : '';
+const BITRATE = Number(flags.bitrate || S.video?.bitrate || 6_000_000 * (DSF / 2) ** 2 * (FPS / 30));
 
 const APP = S.appOrigin; // p. ej. http://localhost:3000
 const STAGE_ORIGIN = S.stageOrigin; // p. ej. http://127.0.0.1:3000 → otro "sitio" = otro proceso
@@ -64,9 +74,10 @@ const STAGE = `<!doctype html><html><head><meta charset="utf-8">
 html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 #stage{position:relative;width:${W}px;height:${H}px;overflow:hidden;font-family:${brand.uiFont},system-ui,sans-serif}
 #scene{position:absolute;inset:0;background:${brand.sceneBg}}
-#celebrate-bg{position:absolute;inset:0;background:${brand.celebrateBg};clip-path:circle(0% at 50% 55%);transition:clip-path 1.1s cubic-bezier(.77,0,.18,1)}
-#celebrate-bg.on{clip-path:circle(150% at 50% 55%)}
-#persp{position:absolute;inset:0;perspective:1600px}
+/* Círculo chico que se agranda: una capa de 2400 px tardaba en dibujarse y el barrido arrancaba tarde. */
+#celebrate-bg{position:absolute;left:50%;top:55%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:${brand.celebrateBg};will-change:transform;transform:scale(0);transition:transform 1.1s cubic-bezier(.77,0,.18,1)}
+#celebrate-bg.on{transform:scale(26)}
+#persp{position:absolute;inset:0;perspective:1600px${PERSP_SAFE}}
 #cam{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d;transition:transform 1.35s cubic-bezier(.65,0,.35,1)}
 #phone{position:absolute;left:-205px;top:-432px;width:410px;height:864px;border-radius:58px;background:#0c0c0e;padding:10px;
   box-shadow:0 2px 0 1px #2a2a2e inset,0 50px 90px -30px rgba(40,45,120,.55),0 18px 40px -20px rgba(0,0,0,.45);transition:transform .18s cubic-bezier(.16,1,.3,1)}
@@ -79,7 +90,7 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 #finger.on{opacity:1}
 .ripple{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:2px solid rgba(255,255,255,.95);z-index:7;pointer-events:none;animation:rip .6s cubic-bezier(.16,1,.3,1) forwards}
 @keyframes rip{from{opacity:.9;transform:scale(.7)}to{opacity:0;transform:scale(2.3)}}
-#cap{position:absolute;left:50%;top:34px;transform:translateX(-50%);z-index:9;white-space:nowrap;padding:12px 26px 8px;border-radius:22px;background:#fff;
+#cap{position:absolute;left:50%;top:${SAFE === 'instagram' ? 118 : 34}px;transform:translateX(-50%);z-index:9;white-space:nowrap;padding:12px 26px 8px;border-radius:22px;background:#fff;
   box-shadow:0 18px 40px -18px rgba(30,35,120,.55);font-family:${brand.displayFont};font-size:46px;line-height:1;color:#101014;transition:opacity .35s;opacity:0}
 #cap.on{opacity:1}
 #cap .w{display:inline-block;margin-right:.22em;opacity:0;transform:translateY(55%);filter:blur(4px);animation:win .6s cubic-bezier(.16,1,.3,1) forwards}
@@ -90,22 +101,26 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 .big{font-family:${brand.displayFont};font-weight:400;font-size:108px;line-height:.9;text-align:center}
 .big .w{display:inline-block;margin-right:.2em;opacity:0;transform:translateY(40%) scale(.8);filter:blur(6px);will-change:transform,filter,opacity;animation:pop .7s cubic-bezier(.16,1,.3,1) forwards}
 @keyframes pop{to{opacity:1;transform:none;filter:none}}
-#intro{background:${brand.accent};clip-path:inset(0 0 0 0);transition:clip-path 1s cubic-bezier(.77,0,.18,1)}
-#intro.out{clip-path:inset(0 0 100% 0)}
+/* Barridos con transform (capa ya dibujada) y no con clip-path, que se repinta en cada cuadro y da tirones. */
+#intro{background:${brand.accent};will-change:transform;transition:transform 1s cubic-bezier(.77,0,.18,1)}
+#intro.out{transform:translate3d(0,-101%,0)}
 #intro .l1{color:#fff}
 #intro .l2{margin-top:10px;display:inline-block;background:#fff;color:${brand.accent};padding:6px 18px 0;border-radius:18px;clip-path:inset(0 100% 0 0);transition:clip-path .7s cubic-bezier(.77,0,.18,1)}
 #intro .l2 .k,#intro .l2 .w{color:${brand.accent}}
 #intro .l2.on{clip-path:inset(0 0 0 0)}
-#celebrate{z-index:9;pointer-events:none;justify-content:flex-start;padding-top:70px}
+#celebrate{z-index:9;pointer-events:none;justify-content:flex-start;padding-top:${SAFE === 'instagram' ? 130 : 70}px}
 #celebrate .big{color:#fff;font-size:150px;text-shadow:0 12px 40px rgba(0,60,20,.35)}
 #celebrate p{margin-top:10px;font-weight:600;font-size:22px;color:rgba(255,255,255,.92);opacity:0;transition:opacity .6s .5s}
 #celebrate.on p{opacity:1}
-#outro{background:${brand.accent};clip-path:circle(0% at 50% 50%);transition:clip-path 1.1s cubic-bezier(.77,0,.18,1)}
-#outro.in{clip-path:circle(150% at 50% 50%)}
+#outro{background:transparent;overflow:hidden}
+#outro::before{content:'';position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:${brand.accent};will-change:transform;transform:scale(0);transition:transform 1.1s cubic-bezier(.77,0,.18,1);z-index:-1}
+#outro.in::before{transform:scale(26)}
+#outro{z-index:10;isolation:isolate;pointer-events:none}
 #outro .big{color:#fff;font-size:70px;line-height:.95;padding:0 40px}
-#outro .big .k{color:#fff;opacity:.72}
-#outro img{width:190px;margin-top:56px;${brand.logoToWhite ? 'filter:brightness(0) invert(1);' : ''}opacity:0;transform:scale(.85);transition:all 1s cubic-bezier(.16,1,.3,1) 1s}
-#outro p.u{margin-top:26px;color:rgba(255,255,255,.85);font-size:20px;letter-spacing:.08em;opacity:0;transition:opacity .8s 1.4s}
+/* Color (no opacity): una opacity fija pisaba la opacidad 0 de la animación y la palabra se veía antes de tiempo. */
+#outro .big .k{color:rgba(255,255,255,.72)}
+#outro img{width:190px;margin-top:56px;${brand.logoToWhite ? 'filter:brightness(0) invert(1);' : ''}opacity:0;transform:scale(.85);transition:all 1s cubic-bezier(.16,1,.3,1) 1.25s}
+#outro p.u{margin-top:26px;color:rgba(255,255,255,.85);font-size:20px;letter-spacing:.08em;opacity:0;transition:opacity .8s 1.6s}
 #outro.in img,#outro.in p.u{opacity:1;transform:none}
 /* Píxel que cambia en cada cuadro: la captura solo emite fotogramas si algo cambia; así el ritmo es constante. */
 #tick{position:absolute;right:0;bottom:0;width:2px;height:2px;z-index:20;pointer-events:none;background:#000;opacity:.02;animation:tick .1s steps(2) infinite}
@@ -128,6 +143,8 @@ const INTRO=${esc(copy.intro)};
 window.intro=()=>{words($('i1'),INTRO[0]||'',{step:120});if(INTRO[1])setTimeout(()=>{$('i2').classList.add('on');words($('i2'),INTRO[1],{delay:120,step:120});},700);else $('i2').remove();};
 window.introOut=()=>$('intro').classList.add('out');
 window.cam=(x,y,s,ry=0,rx=0)=>{$('cam').style.transform='translate3d('+x+'px,'+y+'px,0) scale('+s+') rotateY('+ry+'deg) rotateX('+rx+'deg)';};
+/* Sin transición (para dejar el teléfono dibujado antes de grabar). */
+window.camInstant=(t)=>{const c=$('cam');c.style.transition='none';c.style.transform=t;void c.offsetWidth;requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.transition='';}));};
 window.caption=(text,key)=>{const c=$('cap');c.classList.remove('on');setTimeout(()=>{if(!text)return;words(c,text,{key,step:70});c.classList.add('on');},text?280:0);};
 let active='main';
 window.swapToAlt=()=>{$('alt').style.opacity='1';$('alt').style.pointerEvents='auto';$('main').style.opacity='0';$('main').style.pointerEvents='none';active='alt';};
@@ -146,7 +163,8 @@ window.celebrate=()=>{$('celebrate-bg').classList.add('on');
     shoot({particleCount:120,spread:75,startVelocity:55,origin:{x:.1,y:.9},angle:60,colors,scalar:1.1});
     shoot({particleCount:120,spread:75,startVelocity:55,origin:{x:.9,y:.9},angle:120,colors,scalar:1.1});
     setTimeout(()=>shoot({particleCount:160,spread:110,startVelocity:38,origin:{x:.5,y:.35},colors,scalar:.95}),450);},650);};
-window.outro=()=>{$('outro').classList.add('in');words($('o1'),${esc(copy.outro)},{delay:500,step:80,key:${esc(copy.outroKey)}});};
+/* El texto entra cuando el círculo azul ya cubrió la pantalla (~0,85 s), si no aparece sobre la escena anterior. */
+window.outro=()=>{$('outro').classList.add('in');words($('o1'),${esc(copy.outro)},{delay:850,step:80,key:${esc(copy.outroKey)}});};
 window.__chunks=[];
 window.startRec=async()=>{const s=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:${FPS},width:${Math.round(W * DSF)},height:${Math.round(H * DSF)}},preferCurrentTab:true,audio:false});
   const rec=new MediaRecorder(s,{mimeType:'video/mp4;codecs=avc1.640028',videoBitsPerSecond:${BITRATE}});
@@ -262,6 +280,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 		// Imágenes ya decodificadas antes de grabar.
 		await f.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 400) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)); } window.scrollTo(0, 0); });
 	}
+	// Precalentar la primera aparición del teléfono: se ubica un momento en su posición habitual (tapado
+	// por la intro) para que el navegador ya lo tenga dibujado. Sin esto, la entrada da un tirón (~0,25 s).
+	await page.evaluate(() => window.camInstant('translate3d(0px,60px,0) scale(.84)'));
+	await sleep(1200);
+	await page.evaluate(() => window.camInstant('translate3d(0px,1150px,0) scale(.9)'));
 	await sleep(1500);
 
 	let frame = frames.main;

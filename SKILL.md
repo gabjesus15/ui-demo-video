@@ -67,11 +67,29 @@ El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTION
 | Cuadros perdidos | 60 fps a 1080p satura el codificador (daba ~41 fps reales) | 30 fps |
 | Ritmo irregular en algunos reproductores | La captura solo emite cuadros cuando algo cambia | Un píxel casi invisible cambia en cada cuadro (`#tick`) |
 | Scroll a saltos | `behavior: 'smooth'` depende del navegador | `smoothScroll`: rAF con curva de aceleración y frenado |
+| Tirón al aparecer el teléfono | Primera vez que se dibuja la app dentro de la escena | El motor lo deja dibujado antes de grabar (posición final, tapado por la intro) |
+| «Brinco» en la entrada | Entrar girado en 3D y luego enderezarse son dos movimientos | Entrada en un solo movimiento: `cam(0, 60, 0.84)` |
+| Tirón al terminar un barrido | `clip-path` se repinta en cada cuadro sobre toda la pantalla | Barridos con `transform` (deslizar, o un círculo chico que escala ×26) |
+| Barrido que arranca tarde | Una capa gigante (2400 px ×2) tarda en dibujarse | Círculo de 120 px escalado, nunca capas enormes |
+| Texto que aparece antes de tiempo | Un `opacity` fijo pisa la opacidad 0 inicial de la animación | Resaltar con `color` semitransparente, no con `opacity` |
 
 **Incrustar la app en otro origen exige tres cosas.** Si falta alguna, la app se ve pero no reacciona:
 1. Quitar `X-Frame-Options` y `frame-ancestors`, solo en este navegador de grabación.
 2. Quitar además `content-encoding`, `content-length` y `transfer-encoding`: el cuerpo llega descomprimido.
 3. Lanzar el navegador con `--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessChecks,BlockInsecurePrivateNetworkRequests`. Si no, el documento servido desde el grabador cuenta como «externo» y se le bloquea el acceso a `localhost`: no carga su JS y la página no hidrata.
+
+## Cuadros por segundo y redes sociales
+
+- **30 fps es el valor por defecto y el recomendado.** En una PC con RTX 3070 se midió: la captura entrega 60, el codificador del navegador deja unos 57–58 y la escena real (app + efectos) unos 49–50. La GPU ya se usa sin configurar nada, así que activarla no ayuda.
+- **`--fps=60`** existe, pero graba en vivo y no garantiza 60 reales. Para 60 exactos habría que renderizar cuadro por cuadro con el reloj congelado, algo que esta skill todavía no hace.
+- **Instagram, TikTok y WhatsApp** aceptan 60, pero suelen recomprimir a 30 al publicar: para redes, graba a 30.
+- **`--safe=instagram`:** baja los títulos y achica y sube el teléfono, para que la interfaz de Reels no los tape. Instagram tapa arriba (~12 %), abajo (~20 %: nombre, descripción, música) y el costado derecho (botones).
+- **`--size=720`:** fuerza el ancho final. Sirve para probar 60 fps a 720p (medido: ~50 fps reales, casi igual que en 1080p).
+
+```bash
+node <skill>/scripts/record-demo.cjs escenario.cjs out master --safe=instagram   # Reels / TikTok
+node <skill>/scripts/record-demo.cjs escenario.cjs out master --fps=60            # a 60, en vivo (~49 reales)
+```
 
 ## Por qué el dedo toca donde debe
 
@@ -84,7 +102,7 @@ El grabador bloquea por defecto **toda** petición que no sea GET, HEAD u OPTION
 ## Dirección de arte (lo que hizo que se viera bien)
 
 - **Títulos grandes**, en Bebas Neue o la tipografía de display de la marca, que entran palabra por palabra (subir, desenfoque a nítido). Una palabra clave va en el color de la marca, dentro de una píldora blanca para que se lea sobre cualquier pantalla.
-- **Cámara:** `cam(x, y, escala)` con curva `cubic-bezier(.65,0,.35,1)` y 1,35 s. Acercamientos de 1,1 a 1,2 para leer; teléfono completo (0,97) cuando importa ver todo (el carrito con el total).
+- **Cámara:** `cam(x, y, escala)` con curva `cubic-bezier(.65,0,.35,1)` y 1,35 s. Evita los giros 3D (`rotY`/`rotX`) que después se enderezan: se ven como un brinco. Acercamientos de 1,1 a 1,2 para leer; teléfono completo (0,97) cuando importa ver todo (el carrito con el total).
 - **Ritmo:** 40–50 s en total, 0,5–0,9 s entre acciones y un respiro después de cada cambio de pantalla. Dedo: 0,6–0,7 s de viaje.
 - **Final emocional:** el fondo verde se abre en círculo desde el teléfono, confeti desde las dos esquinas y el centro, y «¡Y listo!» enorme arriba con el teléfono más abajo para que no se tapen.
 - **Honestidad:** todo lo que se ve es la app real; los datos son inventados. No agregues pantallas que la app no tiene.

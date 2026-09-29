@@ -98,9 +98,9 @@ module.exports = {
 		await api.intro();
 		await sleep(1900);
 		await api.introOut();
-		await cam(0, 60, 0.84, -8, 4); // entra con un leve giro 3D…
+		// Entrada en un solo movimiento: un giro 3D que después se endereza se ve como un brinco.
+		await cam(0, 60, 0.84);
 		await sleep(1250);
-		await cam(0, 60, 0.84, 0, 0); // …y se endereza
 
 		// Inicio → carta: se "toca" el enlace sin navegar y se pasa al iframe precargado
 		await caption('Abre tu link', [2]);

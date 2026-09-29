@@ -56,6 +56,8 @@ Clona el repo donde quieras y dale a la IA el archivo [`SKILL.md`](SKILL.md) com
    node ~/.claude/skills/ui-demo-video/scripts/record-demo.cjs scripts/video/mi-demo.cjs out master
    ```
    Al final revisa el bloque `--- red ---`: tiene que decir que el envío fue **FALSO** y no mostrar escrituras inesperadas.
+
+   Opciones: `--safe=instagram` (zonas seguras de Reels y TikTok), `--fps=60` (a 60 en vivo, que en la práctica da ~49 reales), `--size=720` (ancho final) y `--bitrate=…`.
 3. **Revisa la calidad:**
    ```bash
    node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs gaps out/mi-demo.mp4          # tirones
@@ -118,7 +120,9 @@ La regla de oro: **si tu app escribe en una base real, ninguna escritura del rec
 
 **¿Funciona con cualquier framework?** Sí. Graba cualquier app web que corra en el navegador. Los detalles de Next.js (acciones de servidor, indicador de desarrollo) son opcionales.
 
-**¿Por qué 30 fps y no 60?** A 1080p, 60 fps satura el codificador del navegador y se pierden cuadros; se ve más fluido a 30.
+**¿Por qué 30 fps y no 60?** Grabando en vivo, el codificador y la escena no sostienen 60 reales (se midieron ~49), y Instagram, TikTok y WhatsApp suelen recomprimir a 30 al publicar. Para redes, 30 es lo mejor. `--fps=60` existe para quien lo necesite.
+
+**¿Y para Instagram?** Usa `--safe=instagram`: los títulos y el teléfono quedan fuera de las zonas que tapa la interfaz de Reels.
 
 **El video tiene tirones.** Mide con `qa-tools.cjs gaps`. Si aparecen en plena acción, revisa que tengas `warmUp`, que la navegación sea con `swapToAlt` y que la escena y la app estén en orígenes distintos. La tabla de causas está en `SKILL.md`.
 
