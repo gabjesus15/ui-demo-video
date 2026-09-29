@@ -132,6 +132,11 @@ Para publicidad (Reels, TikTok) el video necesita tres cosas más, y el motor la
   - **Plan gratuito de ElevenLabs:** no permite uso comercial ni voces de la biblioteca por API. Para probar, usa
     `--voice=<voz incluida>`; para el anuncio final hace falta un plan pago.
   - Busca una voz parecida a otra grabación con `POST /v1/similar-voices` (subes el audio o el video).
+  - **Acento:** una voz en inglés hablando español suele sonar a España. Con el plan gratuito, el modelo v3 acepta
+    etiquetas que no se leen: `--model=eleven_v3 --prefix='[Latin American Spanish accent] [cheerful]'` (o `voice.prefix`
+    en el escenario). Verifica con `speech-to-text` que la etiqueta no se haya leído en voz alta.
+  - Algunas voces de la biblioteca exigen un plan mayor que Starter (p. ej. Creator): el error lo dice
+    (`free_users_not_allowed`).
 - **Llamado a la acción** (`copy.cta`): una píldora bajo el texto del cierre, antes del logo.
 - **Ubicación simulada** (`geolocation: { latitude, longitude, accuracy }`): para flujos con delivery. Tres trampas resueltas:
   la simulación de Playwright no llega a iframes de otro origen (se responde desde la página), el permiso depende del

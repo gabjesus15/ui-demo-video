@@ -2,7 +2,7 @@
 /**
  * Genera la voz en off del escenario con ElevenLabs (una pista por frase) y la deja lista para el motor.
  *
- *   node voiceover.cjs <escenario.cjs> <carpeta-salida> [--voice=<voiceId>]
+ *   node voiceover.cjs <escenario.cjs> <carpeta-salida> [--voice=<voiceId>] [--model=eleven_v3] [--prefix='[Latin American Spanish accent]']
  *
  * --voice prueba otra voz sin tocar el escenario (p. ej. una voz incluida del plan gratuito: el plan
  * gratuito NO puede usar voces de la biblioteca por API).
@@ -35,7 +35,7 @@ if (!scenarioPath || !OUT) {
 	process.exit(1);
 }
 const S = require(path.resolve(scenarioPath));
-const V = S.voice && { ...S.voice, voiceId: flags.voice || S.voice.voiceId };
+const V = S.voice && { ...S.voice, voiceId: flags.voice || S.voice.voiceId, ...(flags.model ? { model: flags.model } : {}), ...(flags.prefix ? { prefix: flags.prefix + ' ' } : {}) };
 if (!V?.voiceId || !V?.lines) {
 	console.error('El escenario no tiene `voice: { voiceId, lines }`.');
 	process.exit(1);
@@ -57,7 +57,7 @@ const settings = { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speak
 (async () => {
 	let spent = 0;
 	for (const [id, text] of Object.entries(V.lines)) {
-		const hash = crypto.createHash('sha1').update(JSON.stringify([V.voiceId, model, settings, text])).digest('hex').slice(0, 12);
+		const hash = crypto.createHash('sha1').update(JSON.stringify([V.voiceId, model, settings, V.prefix || '', text])).digest('hex').slice(0, 12);
 		const file = path.join(dir, `${id}.mp3`);
 		if (manifest[id]?.hash === hash && fs.existsSync(file)) { console.log(`= ${id} (${manifest[id].duration.toFixed(2)} s, en caché)`); continue; }
 		// Frases vecinas como contexto: la entonación sale más natural que generando cada una aislada.
@@ -68,9 +68,14 @@ const settings = { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speak
 			method: 'POST',
 			headers: { 'xi-api-key': KEY, 'content-type': 'application/json' },
 			body: JSON.stringify({
-				text, model_id: model, voice_settings: settings,
-				previous_text: i > 0 ? V.lines[ids[i - 1]] : undefined,
-				next_text: i < ids.length - 1 ? V.lines[ids[i + 1]] : undefined,
+				// prefix: etiquetas del modelo v3 que no se leen, p. ej. '[Latin American Spanish accent] [cheerful] '.
+				text: (V.prefix || '') + text, model_id: model, voice_settings: settings,
+				...(V.language ? { language_code: V.language } : {}),
+				// v3 no acepta texto de contexto; los otros modelos entonan mejor con él.
+				...(/v3/.test(model) ? {} : {
+					previous_text: i > 0 ? V.lines[ids[i - 1]] : undefined,
+					next_text: i < ids.length - 1 ? V.lines[ids[i + 1]] : undefined,
+				}),
 			}),
 		});
 		const data = await res.json();
