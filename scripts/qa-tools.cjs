@@ -6,8 +6,8 @@
  *   node qa-tools.cjs gaps   <video.mp4>                 → tirones: huecos entre fotogramas > 100 ms
  *   node qa-tools.cjs frames <video.mp4> <carpeta> [n]   → n fotogramas JPG repartidos (revisar toques y encuadres)
  *   node qa-tools.cjs poster <video.mp4> <salida.jpg> <segundo>  → portada a resolución completa
- *   node qa-tools.cjs web    <master.mp4> <salida.mp4> [ancho=720] [bitrate=1600000]
- *                                                       → versión liviana re-codificada desde la master
+ *   node qa-tools.cjs web    <master.mp4> <salida.mp4> [ancho=720] [bitrate=2400000]
+ *                                                       → versión liviana re-codificada desde la master, cuadro por cuadro (conserva los fps)
  *
  * Ejecutar desde un proyecto con `playwright` instalado. Canal: msedge (usa CHANNEL=chrome si no hay Edge).
  */
@@ -98,18 +98,46 @@ function serve(file) {
 	}
 
 	if (cmd === 'web') {
-		// Re-codifica en tiempo real desde la master: conserva la toma limpia (no se regraba).
-		const [out, wArg, brArg] = rest; const w = Number(wArg || 720); const br = Number(brArg || 1_600_000);
-		const size = await page.evaluate(({ w, br }) => new Promise((res) => {
+		// Re-codifica desde la master (conserva la toma limpia, no se regraba), cuadro por cuadro con WebCodecs:
+		// se reproduce a media velocidad y cada fotograma nuevo se codifica con su tiempo original. Así se
+		// mantienen los 60 fps de la master sin botar cuadros (antes: MediaRecorder a 30 en tiempo real).
+		const [out, wArg, brArg] = rest; const w = Number(wArg || 720); const br = Number(brArg || 2_400_000);
+		await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.min.js' });
+		const r = await page.evaluate(async ({ w, br }) => {
 			const v = document.getElementById('v'), c = document.getElementById('c');
-			c.width = w; c.height = Math.round((v.videoHeight / v.videoWidth) * w); const ctx = c.getContext('2d');
-			const rec = new MediaRecorder(c.captureStream(30), { mimeType: 'video/mp4;codecs=avc1.640028', videoBitsPerSecond: br });
-			const parts = []; rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
-			rec.onstop = () => { window.__blob = new Blob(parts, { type: 'video/mp4' }); res(window.__blob.size); };
-			const draw = () => { ctx.drawImage(v, 0, 0, c.width, c.height); if (!v.ended) v.requestVideoFrameCallback(draw); };
-			v.onended = () => setTimeout(() => rec.stop(), 150);
-			ctx.drawImage(v, 0, 0, c.width, c.height); rec.start(); v.requestVideoFrameCallback(draw); v.play();
-		}), { w, br });
+			c.width = w; c.height = Math.round(((v.videoHeight / v.videoWidth) * w) / 2) * 2; const ctx = c.getContext('2d');
+			let config = null;
+			for (const codec of ['avc1.640033', 'avc1.64002a', 'avc1.640028', 'avc1.4d0033', 'avc1.42e033']) {
+				const cfg = { codec, width: c.width, height: c.height, bitrate: br, framerate: 60, avc: { format: 'avc' }, latencyMode: 'quality' };
+				const s = await VideoEncoder.isConfigSupported(cfg).catch(() => null); if (s && s.supported) { config = cfg; break; }
+			}
+			if (!config) throw new Error('Este navegador no codifica H.264 con WebCodecs');
+			const muxer = new Mp4Muxer.Muxer({ target: new Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: c.width, height: c.height }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' });
+			let err = null; const enc = new VideoEncoder({ output: (ch, m) => muxer.addVideoChunk(ch, m), error: (e) => { err = String(e); } });
+			enc.configure(config);
+			let n = 0, last = -1, prev = null;
+			// Cada cuadro se entrega con la duración hasta el siguiente: se codifica con un cuadro de retraso.
+			const push = (t) => { if (prev) { const f = new VideoFrame(prev.bmp, { timestamp: prev.ts, duration: Math.max(1, t - prev.ts) }); enc.encode(f, { keyFrame: n % 120 === 0 }); f.close(); prev.bmp.close(); n++; } };
+			await new Promise((res) => {
+				const draw = async (_now, meta) => {
+					if (meta.mediaTime > last) {
+						last = meta.mediaTime; ctx.drawImage(v, 0, 0, c.width, c.height);
+						const ts = Math.round(meta.mediaTime * 1e6); push(ts); prev = { ts, bmp: await createImageBitmap(c) };
+					}
+					if (!v.ended) v.requestVideoFrameCallback(draw);
+				};
+				let still = 0, lt = -1;
+				const guard = setInterval(() => { if (v.currentTime === lt) { if (++still > 6) { clearInterval(guard); res(); } } else { still = 0; lt = v.currentTime; } }, 500);
+				v.onended = () => { clearInterval(guard); setTimeout(res, 200); };
+				v.playbackRate = 0.5; v.requestVideoFrameCallback(draw); v.play();
+			});
+			push(Math.round(v.duration * 1e6));
+			await enc.flush(); if (err) throw new Error(err);
+			muxer.finalize(); window.__blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+			return { size: window.__blob.size, frames: n };
+		}, { w, br });
+		const size = r.size;
+		console.log(`${r.frames} cuadros re-codificados`);
 		const chunks = [];
 		for (let i = 0; ; i++) {
 			const b64 = await page.evaluate((n) => new Promise((r) => { const s = 4 << 20; const part = window.__blob.slice(n * s, (n + 1) * s); if (!part.size) return r(null); const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(part); }), i);

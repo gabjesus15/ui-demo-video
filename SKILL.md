@@ -150,10 +150,10 @@ node <skill>/scripts/qa-tools.cjs frames out/mi-demo.mp4 out/frames 48
 ## Versión web y portada
 
 ```bash
-node <skill>/scripts/qa-tools.cjs web out/mi-demo.mp4 public/videos/menu-digital-pedido-online.mp4 720 1600000
+node <skill>/scripts/qa-tools.cjs web out/mi-demo.mp4 public/videos/menu-digital-pedido-online.mp4 720 1800000
 node <skill>/scripts/qa-tools.cjs poster public/videos/menu-digital-pedido-online.mp4 public/videos/menu-digital-pedido-online.jpg 4.2
 ```
-- La web se saca **de la maestra** en lugar de regrabar, porque cada toma es distinta y así se conserva la más limpia.
+- La web se saca **de la maestra** en lugar de regrabar, porque así se conserva la toma aprobada. Se re-codifica cuadro por cuadro con WebCodecs y mantiene los 60 fps (medido: 2237 de 2238 cuadros, 37 s en 8,7 MB a 1,8 Mbps).
 - Nombres de archivo descriptivos con palabras de búsqueda reales (`menu-digital-pedido-online-restaurante-marca.mp4`), no `demo1.mp4`.
 - La portada tiene que contar algo, como el primer paso o el resultado, no una pantalla vacía.
 

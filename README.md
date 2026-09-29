@@ -65,7 +65,7 @@ Clona el repo donde quieras y dale a la IA el archivo [`SKILL.md`](SKILL.md) com
    ```
 4. **Saca la versión web y la portada:**
    ```bash
-   node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs web out/mi-demo.mp4 public/videos/demo.mp4 720 1600000
+   node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs web out/mi-demo.mp4 public/videos/demo.mp4 720 1800000
    node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs poster public/videos/demo.mp4 public/videos/demo.jpg 4.2
    ```
 
