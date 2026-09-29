@@ -36,6 +36,8 @@ if (!scenarioPath || !OUT) {
 }
 const S = require(path.resolve(scenarioPath));
 const V = S.voice && { ...S.voice, voiceId: flags.voice || S.voice.voiceId, ...(flags.model ? { model: flags.model } : {}), ...(flags.prefix ? { prefix: flags.prefix + ' ' } : {}) };
+// --stability=0.5 (v3 solo acepta 0 creativa, 0.5 natural o 1 estable).
+if (V && flags.stability) V.settings = { ...(V.settings || {}), stability: Number(flags.stability) };
 if (!V?.voiceId || !V?.lines) {
 	console.error('El escenario no tiene `voice: { voiceId, lines }`.');
 	process.exit(1);

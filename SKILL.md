@@ -133,7 +133,7 @@ Para publicidad (Reels, TikTok) el video necesita tres cosas más, y el motor la
     `--voice=<voz incluida>`; para el anuncio final hace falta un plan pago.
   - Busca una voz parecida a otra grabación con `POST /v1/similar-voices` (subes el audio o el video).
   - **Acento:** una voz en inglés hablando español suele sonar a España. Con el plan gratuito, el modelo v3 acepta
-    etiquetas que no se leen: `--model=eleven_v3 --prefix='[Latin American Spanish accent] [cheerful]'` (o `voice.prefix`
+    etiquetas que no se leen: `--model=eleven_v3 --stability=0.5 --prefix='[Venezuelan Spanish accent] [warm, casual, conversational]'` (o `voice.prefix`
     en el escenario). Verifica con `speech-to-text` que la etiqueta no se haya leído en voz alta.
   - Algunas voces de la biblioteca exigen un plan mayor que Starter (p. ej. Creator): el error lo dice
     (`free_users_not_allowed`).
