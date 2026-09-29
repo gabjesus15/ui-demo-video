@@ -119,6 +119,31 @@ node <skill>/scripts/record-demo.cjs escenario.cjs out master --safe=instagram  
 node <skill>/scripts/record-demo.cjs escenario.cjs out master --live --fps=30    # motor en vivo
 ```
 
+## Anuncios: voz en off, gancho y llamado a la acción
+
+Para publicidad (Reels, TikTok) el video necesita tres cosas más, y el motor las trae:
+
+- **Gancho en los primeros 3 s** (`copy.hook`): un chat genérico que se llena de mensajes (sin logos ni interfaz de
+  terceros) con un título grande encima. En el guion: `api.hook(ms)` arranca los mensajes, `api.hookTitle(texto, [clave])`
+  cambia el título y `api.hookOut()` lo barre hacia arriba. Con gancho no se usa la intro de marca.
+- **Voz en off** (`voice` en el escenario + `scripts/voiceover.cjs`): ElevenLabs genera una pista por frase (con caché, no
+  gasta dos veces) y `api.say(id)` la pone a sonar en ese instante del video; `api.voiceDuration(id)` ayuda a acompasar.
+  El motor la mezcla en estéreo a 48 kHz, la comprime suave y la codifica en AAC dentro del MP4 (solo motor render).
+  - **Plan gratuito de ElevenLabs:** no permite uso comercial ni voces de la biblioteca por API. Para probar, usa
+    `--voice=<voz incluida>`; para el anuncio final hace falta un plan pago.
+  - Busca una voz parecida a otra grabación con `POST /v1/similar-voices` (subes el audio o el video).
+- **Llamado a la acción** (`copy.cta`): una píldora bajo el texto del cierre, antes del logo.
+- **Ubicación simulada** (`geolocation: { latitude, longitude, accuracy }`): para flujos con delivery. Tres trampas resueltas:
+  la simulación de Playwright no llega a iframes de otro origen (se responde desde la página), el permiso depende del
+  sitio de la escena y una cabecera `Permissions-Policy: geolocation=(self)` en la escena lo bloquea (se quita solo aquí).
+- **Servicios externos lentos** (geocodificación, una base lenta): con render la espera no se ve, así que el motor espera
+  hasta 60 s (`--wait=`). Si un servicio es inestable, responde esa **lectura** con `fakes` usando su respuesta real.
+
+**Guion que conecta** (lo que se aplicó): nombrar al público y su dolor cotidiano en el primer segundo («Si tienes
+restaurante, ya te sabes esta canción…»), humor que lo haga sentirse identificado, mostrar la solución real funcionando
+y cerrar con una frase que vuelva al gancho («Deja el chat para los amigos»). El texto en pantalla debe contar la historia
+sin sonido: la mayoría mira en silencio.
+
 ## Por qué el dedo toca donde debe
 
 - La posición se calcula en coordenadas del iframe y se convierte a la escena **en cada cuadro**, con `getBoundingClientRect` del iframe, que ya incluye la cámara. Si la cámara o un panel se mueven, el dedo sigue encima.

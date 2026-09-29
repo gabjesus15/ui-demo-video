@@ -54,6 +54,9 @@ const PERSP_SAFE = SAFE === 'instagram' ? ';transform:translate(-14px,-34px) sca
 // Sin apuro de tiempo real, render puede darse más calidad.
 const BITRATE = Number(flags.bitrate || S.video?.bitrate || (ENGINE === 'render' ? 8e6 : 6e6) * (DSF / 2) ** 2 * (FPS / 30));
 
+// Cuánto esperar a que aparezca un elemento. Con render la espera no se ve en el video, así que puede ser
+// larga (una base de datos lenta tardó 36 s en responder en plena toma).
+const WAIT_MS = Number(flags.wait || S.video?.waitMs || (ENGINE === 'render' ? 60000 : 15000));
 const APP = S.appOrigin; // p. ej. http://localhost:3000
 const STAGE_ORIGIN = S.stageOrigin; // p. ej. http://127.0.0.1:3000 → otro "sitio" = otro proceso
 const brand = {
@@ -67,9 +70,12 @@ const brand = {
 	logoToWhite: true,
 	site: '',
 	confetti: ['#ffffff', '#4f5bff', '#facc15', '#f472b6', '#a5b4fc'],
+	hookBg: 'radial-gradient(120% 80% at 50% 0%,#1e2233 0%,#0b0c10 70%)',
+	hookKey: '#facc15', // palabra resaltada del gancho (sobre fondo oscuro)
 	...(S.brand || {}),
 };
-const copy = { intro: ['¿Y cómo', 'funciona?'], celebrate: '¡Y listo!', celebrateSub: '', outro: '', outroKey: [], ...(S.copy || {}) };
+const copy = { intro: ['¿Y cómo', 'funciona?'], celebrate: '¡Y listo!', celebrateSub: '', outro: '', outroKey: [], cta: '', hook: null, ...(S.copy || {}) };
+const escHtml = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 const esc = (v) => JSON.stringify(v);
 // Duración con el ritmo global aplicado.
@@ -140,9 +146,29 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 #outro .big{color:#fff;font-size:70px;line-height:.95;padding:0 40px}
 /* Color (no opacity): una opacity fija pisaba la opacidad 0 de la animación y la palabra se veía antes de tiempo. */
 #outro .big .k{color:rgba(255,255,255,.72)}
-#outro img{width:190px;margin-top:56px;${brand.logoToWhite ? 'filter:brightness(0) invert(1);' : ''}opacity:0;transform:scale(.85);transition:opacity ${d(0.7)} ${d(1)},transform ${d(0.9)} ${EASE_OUT} ${d(1)}}
-#outro p.u{margin-top:26px;color:rgba(255,255,255,.85);font-size:20px;letter-spacing:.08em;opacity:0;transition:opacity ${d(0.7)} ${d(1.3)}}
+#outro img{width:190px;margin-top:56px;${brand.logoToWhite ? 'filter:brightness(0) invert(1);' : ''}opacity:0;transform:scale(.85);transition:opacity ${d(0.7)} ${d(copy.cta ? 1.3 : 1)},transform ${d(0.9)} ${EASE_OUT} ${d(copy.cta ? 1.3 : 1)}}
+#outro p.u{margin-top:26px;color:rgba(255,255,255,.85);font-size:20px;letter-spacing:.08em;opacity:0;transition:opacity ${d(0.7)} ${d(copy.cta ? 1.6 : 1.3)}}
 #outro.in img,#outro.in p.u{opacity:1;transform:none}
+/* Gancho: un chat que se llena de mensajes (genérico, sin marcas de terceros) y un título encima. */
+#hook{z-index:11;background:${brand.hookBg};will-change:transform;transition:transform ${d(0.8)} ${EASE_WIPE};display:block}
+#hook.out{transform:translate3d(0,-101%,0)}
+#hook .head{position:absolute;left:34px;right:34px;top:${SAFE === 'instagram' ? 150 : 90}px;display:flex;align-items:center;gap:14px;color:#fff;font-weight:600;font-size:21px}
+#hook .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#3b4257,#232838);display:grid;place-items:center;font-size:20px}
+#hook .head small{display:block;font-weight:500;font-size:15px;color:#9ca3af}
+#hook .badge{margin-left:auto;min-width:46px;text-align:center;background:#ef4444;color:#fff;border-radius:999px;padding:5px 12px;font-weight:700;font-size:19px}
+#hook .badge.bump{animation:bump ${d(0.28)} ${EASE_OUT}}
+@keyframes bump{40%{transform:scale(1.28)}}
+#hook .chat{position:absolute;left:30px;right:30px;top:${SAFE === 'instagram' ? 222 : 160}px;bottom:${SAFE === 'instagram' ? 250 : 120}px;overflow:hidden;-webkit-mask-image:linear-gradient(transparent 0,#000 26%);mask-image:linear-gradient(transparent 0,#000 26%)}
+#hook .col{position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column;gap:12px;transition:transform ${d(0.34)} ${EASE_OUT}}
+#hook .bub{align-self:flex-start;max-width:82%;background:#fff;color:#111827;font-size:25px;line-height:1.22;font-weight:500;padding:13px 18px 14px;border-radius:22px 22px 22px 6px;box-shadow:0 12px 30px -14px rgba(0,0,0,.7);transform-origin:0 100%;animation:bub ${d(0.36)} cubic-bezier(.2,1.35,.3,1) both}
+#hook .bub small{display:block;font-size:14px;font-weight:600;color:#6b7280;margin-bottom:3px}
+@keyframes bub{from{opacity:0;transform:translateY(16px) scale(.7)}to{opacity:1;transform:none}}
+#hook .scrim{position:absolute;inset:0;background:rgba(8,9,13,.62);opacity:0;transition:opacity ${d(0.3)}}
+#hook.titled .scrim{opacity:1}
+#hook .ht{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 34px;color:#fff;font-size:92px;line-height:.92;text-shadow:0 10px 40px rgba(0,0,0,.5)}
+#hook .ht .k{color:${brand.hookKey}}
+#outro .cta{margin-top:34px;background:#fff;color:${brand.accent};font-weight:600;font-size:24px;padding:14px 28px;border-radius:999px;box-shadow:0 18px 40px -16px rgba(0,0,0,.45);opacity:0;transform:translateY(14px) scale(.92);transition:opacity ${d(0.45)} ${d(1)},transform ${d(0.6)} cubic-bezier(.2,1.3,.3,1) ${d(1)}}
+#outro.in .cta{opacity:1;transform:none}
 /* Solo motor live: un píxel que cambia en cada cuadro, porque la captura solo emite fotogramas si algo cambia. */
 #tick{position:absolute;right:0;bottom:0;width:2px;height:2px;z-index:20;pointer-events:none;background:#000;opacity:.02;animation:tick .1s steps(2) infinite}
 @keyframes tick{50%{opacity:.03}}
@@ -150,12 +176,13 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;z-index:9;pointer-eve
 </style></head><body><div id="stage">
 <div id="scene"></div><div id="celebrate-bg"></div>
 <div id="persp"><div id="cam" style="transform:translate3d(0,1150px,0) scale(.9)"><div id="phone"><div id="screen">
-<iframe id="main" src="about:blank"></iframe><iframe id="alt" src="about:blank"></iframe></div></div></div></div>
+<iframe id="main" src="about:blank" allow="geolocation"></iframe><iframe id="alt" src="about:blank" allow="geolocation"></iframe></div></div></div></div>
 <div id="cap"></div><div id="finger"></div>${ENGINE === 'live' ? '<div id="tick"></div>' : ''}
 <div id="celebrate" class="card"><div class="big" id="celebrateText"></div><p>${copy.celebrateSub}</p></div>
 <canvas id="fx"></canvas>
 <div id="intro" class="card"><div class="big l1" id="i1"></div><div class="big l2" id="i2"></div></div>
-<div id="outro" class="card"><div class="big" id="o1"></div>${brand.logo ? `<img src="${brand.logo}" alt="">` : ''}<p class="u">${brand.site}</p></div>
+${copy.hook ? `<div id="hook" class="card"><div class="head"><div class="av">${escHtml(copy.hook.avatar || '💬')}</div><div>${escHtml(copy.hook.chatName || 'Clientes')}<small>${escHtml(copy.hook.status || 'escribiendo…')}</small></div><div class="badge" id="hkBadge">${copy.hook.unread ?? 3}</div></div><div class="chat"><div class="col" id="hkCol"></div></div><div class="scrim"></div><div class="big ht" id="hkTitle"></div></div>` : ''}
+<div id="outro" class="card"><div class="big" id="o1"></div>${copy.cta ? `<div class="cta">${escHtml(copy.cta)}</div>` : ''}${brand.logo ? `<img src="${brand.logo}" alt="">` : ''}<p class="u">${brand.site}</p></div>
 </div>
 <script>
 const T=${TEMPO};
@@ -164,6 +191,15 @@ const words=(el,text,{key=[],delay=0,step=90}={})=>{el.innerHTML='';text.split('
 const INTRO=${esc(copy.intro)};
 window.intro=()=>{words($('i1'),INTRO[0]||'',{step:90});if(INTRO[1])setTimeout(()=>{$('i2').classList.add('on');words($('i2'),INTRO[1],{delay:90,step:90});},520*T);else $('i2').remove();};
 window.introOut=()=>$('intro').classList.add('out');
+const HOOK=${esc(copy.hook)};
+/* Mensajes cada step ms (con un poco de variación, como un chat real); el contador sube con cada uno. */
+window.hook=(step=320)=>{if(!HOOK)return;/* Con gancho no hay intro de marca: su tarjeta taparía la escena. */const it=$('intro');if(it&&!it.classList.contains('out'))it.style.display='none';const col=$('hkCol'),chat=col.parentElement,badge=$('hkBadge');let n=Number(badge.textContent)||0;
+  (HOOK.messages||[]).forEach((m,i)=>setTimeout(()=>{const b=document.createElement('div');b.className='bub';const o=typeof m==='string'?{text:m}:m;
+    b.innerHTML=(o.from?'<small></small>':'')+'<span></span>';if(o.from)b.querySelector('small').textContent=o.from;b.querySelector('span').textContent=o.text;col.appendChild(b);
+    col.style.transform='translateY('+(chat.clientHeight-col.offsetHeight)+'px)';badge.textContent=String(n+=1+(i%3===2?1:0));badge.classList.remove('bump');void badge.offsetWidth;badge.classList.add('bump');
+  },(i*step+(i%2?40:0))*T));};
+window.hookTitle=(text,key=[])=>{$('hook').classList.add('titled');words($('hkTitle'),text,{key,step:80});};
+window.hookOut=()=>$('hook').classList.add('out');
 /* cam(x, y, escala, { ms, ry, rx }) — ms cambia la duración solo de este movimiento. */
 window.cam=(x,y,s,o={})=>{const c=$('cam');c.style.transitionDuration=((o.ms||1000)*T)+'ms';c.style.transform='translate3d('+x+'px,'+y+'px,0) scale('+s+') rotateY('+(o.ry||0)+'deg) rotateX('+(o.rx||0)+'deg)';};
 /* Sin transición (para dejar el teléfono dibujado antes de grabar). */
@@ -212,13 +248,13 @@ window.readSlice=(i)=>new Promise(r=>{const size=4*1024*1024;const part=window._
 const ENCODER = `<!doctype html><html><head><meta charset="utf-8">
 <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.min.js"></script></head><body><script>
 let enc,muxer,n=0,fps=60,err=null,queue=Promise.resolve();
-window.encInit=async({w,h,rate,bitrate})=>{fps=rate;
+window.encInit=async({w,h,rate,bitrate,audio})=>{fps=rate;
   // Nivel H.264 suficiente para 1080×1920 a 60 fps (4.2 o más); se prueba de mayor a menor.
   const codecs=['avc1.640033','avc1.64002a','avc1.640028','avc1.4d0033','avc1.42e033'];let config=null;
   for(const codec of codecs){const c={codec,width:w,height:h,bitrate,framerate:rate,avc:{format:'avc'},latencyMode:'quality'};
     const s=await VideoEncoder.isConfigSupported(c).catch(()=>null);if(s&&s.supported){config=c;break;}}
   if(!config)throw new Error('Este navegador no codifica H.264 con WebCodecs');
-  muxer=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{codec:'avc',width:w,height:h,frameRate:rate},fastStart:'in-memory'});
+  muxer=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{codec:'avc',width:w,height:h,frameRate:rate},...(audio?{audio:{codec:'aac',numberOfChannels:2,sampleRate:48000}}:{}),fastStart:'in-memory'});
   enc=new VideoEncoder({output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta),error:(e)=>{err=String(e);}});
   enc.configure(config);return config.codec;};
 const add=async(b64)=>{const blob=await (await fetch('data:image/jpeg;base64,'+b64)).blob();const bmp=await createImageBitmap(blob);
@@ -226,6 +262,18 @@ const add=async(b64)=>{const blob=await (await fetch('data:image/jpeg;base64,'+b
   enc.encode(f,{keyFrame:n%(fps*2)===0});f.close();bmp.close();n++;
   while(enc.encodeQueueSize>8)await new Promise(r=>setTimeout(r,4));};
 window.encFrame=(b64)=>{if(err)throw new Error(err);queue=queue.then(()=>add(b64));return queue;};
+/* Voz en off: cada frase se ubica en su instante del video, se mezcla en estéreo a 48 kHz y se codifica en AAC. */
+window.encAudio=async({clips,total,gain})=>{const SR=48000;const ctx=new OfflineAudioContext(2,Math.ceil(total*SR),SR);const master=ctx.createGain();master.gain.value=gain;
+  const comp=ctx.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=3;comp.attack.value=.004;comp.release.value=.2;master.connect(comp).connect(ctx.destination);
+  for(const c of clips){const buf=await ctx.decodeAudioData(Uint8Array.from(atob(c.b64),ch=>ch.charCodeAt(0)).buffer);const src=ctx.createBufferSource();src.buffer=buf;
+    const g=ctx.createGain();g.gain.value=c.volume??1;src.connect(g).connect(master);src.start(c.at);}
+  const out=await ctx.startRendering();let aerr=null;
+  const aenc=new AudioEncoder({output:(chunk,meta)=>muxer.addAudioChunk(chunk,meta),error:(e)=>{aerr=String(e);}});
+  aenc.configure({codec:'mp4a.40.2',sampleRate:SR,numberOfChannels:2,bitrate:160000});
+  const L=out.getChannelData(0),R=out.getChannelData(1),N=1024*8;
+  for(let i=0;i<out.length;i+=N){const n=Math.min(N,out.length-i);const data=new Float32Array(n*2);data.set(L.subarray(i,i+n),0);data.set(R.subarray(i,i+n),n);
+    const ad=new AudioData({format:'f32-planar',sampleRate:SR,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(i*1e6/SR),data});aenc.encode(ad);ad.close();}
+  await aenc.flush();if(aerr)throw new Error(aerr);return out.length/SR;};
 window.encEnd=async()=>{await queue;await enc.flush();if(err)throw new Error(err);muxer.finalize();window.__blob=new Blob([muxer.target.buffer],{type:'video/mp4'});return {size:window.__blob.size,frames:n};};
 window.readSlice=(i)=>new Promise(r=>{const size=4*1024*1024;const part=window.__blob.slice(i*size,(i+1)*size);if(!part.size)return r(null);const fr=new FileReader();fr.onload=()=>r(String(fr.result).split(',')[1]);fr.readAsDataURL(part);});
 </script></body></html>`;
@@ -267,10 +315,13 @@ const readBlob = async (pg) => {
 		// La app suele prohibir que la incrusten desde otro origen (X-Frame-Options / frame-ancestors).
 		// Se quitan esas cabeceras solo aquí. content-encoding/length/transfer-encoding también: el cuerpo
 		// llega descomprimido y con ellas el documento queda incoherente (la página no hidrata).
-		if (req.resourceType() === 'document' && method === 'GET' && url.startsWith(APP + (S.embedPathPrefix || '/'))) {
+		// Permissions-Policy también se quita (en la app y en la página base de la escena): con geolocation=(self)
+		// en la escena, el navegador no deja que el iframe de otro origen pida la ubicación («Permiso denegado»).
+		const isStageDoc = url.startsWith(STAGE_ORIGIN + (S.stageBlankPath || '/robots.txt'));
+		if (req.resourceType() === 'document' && method === 'GET' && (isStageDoc || url.startsWith(APP + (S.embedPathPrefix || '/')))) {
 			const resp = await route.fetch();
 			const headers = { ...resp.headers() };
-			for (const h of ['x-frame-options', 'content-encoding', 'content-length', 'transfer-encoding']) delete headers[h];
+			for (const h of ['x-frame-options', 'permissions-policy', 'content-encoding', 'content-length', 'transfer-encoding']) delete headers[h];
 			if (headers['content-security-policy']) headers['content-security-policy'] = headers['content-security-policy'].replace(/frame-ancestors[^;]*;?/, '');
 			return route.fulfill({ response: resp, headers });
 		}
@@ -303,7 +354,7 @@ const readBlob = async (pg) => {
 
 	// 1) Ensayo sin grabar en un contexto móvil: compila/descarga código e imágenes del recorrido.
 	if (S.warmUp) {
-		const warmCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+		const warmCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, ...(S.geolocation ? { geolocation: S.geolocation, permissions: ['geolocation'] } : {}) });
 		await warmCtx.route('**/*', guard);
 		closePopups(warmCtx);
 		const warm = await warmCtx.newPage();
@@ -314,7 +365,20 @@ const readBlob = async (pg) => {
 	}
 
 	// 2) Escena de grabación
-	const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DSF });
+	// Ubicación simulada (p. ej. para que la app calcule un envío): la app la pide dentro de su iframe.
+	const geo = S.geolocation ? { geolocation: S.geolocation } : {};
+	const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DSF, ...geo });
+	// Chrome decide el permiso según el sitio de la página principal (la escena), no el del iframe: se dan los dos.
+	if (S.geolocation) for (const origin of [APP, STAGE_ORIGIN]) await context.grantPermissions(['geolocation'], { origin });
+	// La ubicación simulada de Playwright no llega a los iframes de otro origen (la pedían y se agotaba el tiempo):
+	// se responde desde la propia página con las coordenadas del escenario, solo en este navegador.
+	if (S.geolocation) await context.addInitScript((g) => {
+		if (!navigator.geolocation) return;
+		const pos = () => ({ coords: { latitude: g.latitude, longitude: g.longitude, accuracy: g.accuracy ?? 20, altitude: null, altitudeAccuracy: null, heading: null, speed: null }, timestamp: Date.now() });
+		navigator.geolocation.getCurrentPosition = (ok) => { setTimeout(() => ok(pos()), 350); };
+		navigator.geolocation.watchPosition = (ok) => { setTimeout(() => ok(pos()), 350); return 1; };
+		navigator.geolocation.clearWatch = () => {};
+	}, S.geolocation);
 	await context.route('**/*', guard);
 	closePopups(context);
 	// Reloj virtual en cada documento (escena e iframes), antes que sus propios scripts. Inactivo hasta el primer tick.
@@ -361,6 +425,13 @@ const readBlob = async (pg) => {
 		? (ms) => new Promise((r) => { clock.waiters.push({ at: clock.vt + ms * TEMPO, r }); })
 		: (ms) => realSleep(ms * TEMPO);
 
+	// Voz en off (voiceover.cjs la genera antes). Cada api.say(id) la ubica en el instante actual del video.
+	const voiceDir = S.voice ? path.resolve(S.voice.dir || path.join(OUT, 'voz')) : null;
+	const voice = voiceDir && fs.existsSync(path.join(voiceDir, 'voz.json')) ? JSON.parse(fs.readFileSync(path.join(voiceDir, 'voz.json'), 'utf8')) : null;
+	if (S.voice && !voice) { console.error(`Falta la voz: corre primero  node ${path.join(__dirname, 'voiceover.cjs')} ${scenarioPath} ${OUT}`); process.exit(1); }
+	if (voice) for (const id of Object.keys(S.voice.lines)) if (voice[id]?.text !== S.voice.lines[id]) { console.error(`La frase «${id}» cambió: vuelve a correr voiceover.cjs`); process.exit(1); }
+	const clips = [];
+
 	let encPage = null;
 	let pump = null;
 	const startRender = async () => {
@@ -368,7 +439,7 @@ const readBlob = async (pg) => {
 		encPage = await encCtx.newPage();
 		await encPage.goto(`${STAGE_ORIGIN}${S.stageBlankPath || '/robots.txt'}`); // origen seguro (WebCodecs lo exige)
 		await encPage.setContent(ENCODER, { waitUntil: 'networkidle' });
-		const codec = await encPage.evaluate((o) => window.encInit(o), { w: Math.round(W * DSF), h: Math.round(H * DSF), rate: FPS, bitrate: BITRATE });
+		const codec = await encPage.evaluate((o) => window.encInit(o), { w: Math.round(W * DSF), h: Math.round(H * DSF), rate: FPS, bitrate: BITRATE, audio: !!voice });
 		const cdp = await context.newCDPSession(page);
 		console.log('render', JSON.stringify({ w: Math.round(W * DSF), h: Math.round(H * DSF), fps: FPS, codec, mbps: +(BITRATE / 1e6).toFixed(1) }));
 
@@ -390,7 +461,12 @@ const readBlob = async (pg) => {
 				clock.vt = to;
 				if (paint) {
 					const b0 = Date.now();
-					const { data } = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 92, optimizeForSpeed: true });
+					// A veces el navegador no entrega la foto (p. ej. mientras compone un cambio grande): se reintenta.
+					let data = null;
+					for (let k = 0; !data; k++) {
+						try { ({ data } = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 92, optimizeForSpeed: true })); }
+						catch (e) { if (k >= 5) throw e; await realSleep(120 * (k + 1)); }
+					}
 					const c0 = Date.now();
 					if (pending) await pending;
 					if (PROF) { PROF.shot += c0 - b0; PROF.enc += Date.now() - c0; PROF.n++; if (PROF.n % 60 === 0) { console.log('perfil/cuadro ms', JSON.stringify({ tick: PROF.tick / PROF.n | 0, shot: PROF.shot / PROF.n | 0, enc: PROF.enc / PROF.n | 0, frames: Object.fromEntries(Object.entries(PROF.frame).map(([k, v]) => [k, v / PROF.n | 0])) })); } }
@@ -415,6 +491,7 @@ const readBlob = async (pg) => {
 		frames,
 		sleep,
 		engine: ENGINE,
+		waitMs: WAIT_MS,
 		log: (m) => console.log(m),
 		frame: () => frame,
 		useFrame: (f) => { frame = f; },
@@ -426,6 +503,18 @@ const readBlob = async (pg) => {
 		celebrate: () => page.evaluate(() => window.celebrate()),
 		outro: () => page.evaluate(() => window.outro()),
 		fingerHide: () => page.evaluate(() => window.fingerHide()),
+		hook: (step) => page.evaluate((st) => window.hook(st), step),
+		hookTitle: (text, key = []) => page.evaluate(([t, k]) => window.hookTitle(t, k), [text, key]),
+		hookOut: () => page.evaluate(() => window.hookOut()),
+		/** Duración (s) de una frase de la voz en off. */
+		voiceDuration: (id) => voice?.[id]?.duration ?? 0,
+		/** Pone a sonar la frase `id` en este instante del video (no espera). `wait: true` espera a que termine. */
+		say: async (id, { wait = false, volume = 1, tail = 0 } = {}) => {
+			if (!voice?.[id]) throw new Error(`No hay voz para «${id}»`);
+			if (ENGINE !== 'render') { console.warn('say(): la voz solo se mezcla con el motor render'); }
+			clips.push({ id, at: clock.vt / 1000, volume });
+			if (wait) await sleep(voice[id].duration * 1000 / TEMPO + tail);
+		},
 		/** Cambio a la pantalla precargada con un «push» (en vez de navegar: una navegación congela ~1 s). */
 		// { unload: false } si el guion vuelve a usar frames.main después del cambio.
 		swapToAlt: async ({ unload = true } = {}) => { await page.evaluate((u) => window.swapToAlt(u), unload); frame = frames.alt; },
@@ -471,7 +560,7 @@ const readBlob = async (pg) => {
 	 */
 	api.focus = async (target, { scale = 1.12, at = 0.55, x = 0, ms } = {}) => {
 		const el = resolve(target);
-		await el.waitFor({ state: 'visible', timeout: 15000 });
+		await el.waitFor({ state: 'visible', timeout: WAIT_MS });
 		const { y } = await centerIn(el);
 		// En la cámara: pantalla del teléfono arriba a la izquierda en (-195, -422) respecto del centro de la escena.
 		const ty = Math.round(at * H - H / 2 - scale * (y - 422));
@@ -482,7 +571,7 @@ const readBlob = async (pg) => {
 	/** El dedo viaja al objetivo, se vuelve a medir (pudo moverse), presiona y recién ahí hace clic. */
 	api.tap = async (target, { travel = 560, hold = 130, click = true } = {}) => {
 		const el = resolve(target);
-		await el.waitFor({ state: 'visible', timeout: 15000 });
+		await el.waitFor({ state: 'visible', timeout: WAIT_MS });
 		const { x, y } = await api.centerOf(el);
 		await page.evaluate(([a, b]) => window.fingerTo(a, b), [x, y]);
 		await sleep(travel);
@@ -517,6 +606,11 @@ const readBlob = async (pg) => {
 		await sleep(300);
 		clock.stop = true;
 		await pump;
+		if (voice && clips.length) {
+			const payload = clips.map((c) => ({ b64: fs.readFileSync(path.join(voiceDir, voice[c.id].file)).toString('base64'), at: c.at, volume: c.volume }));
+			const secs = await encPage.evaluate((o) => window.encAudio(o), { clips: payload, total: clock.vt / 1000, gain: S.voice.gain ?? 1 });
+			console.log(`voz: ${clips.length} frases mezcladas (${secs.toFixed(1)} s de audio)`);
+		}
 		const { frames: n } = await encPage.evaluate(() => window.encEnd());
 		fs.writeFileSync(file, await readBlob(encPage));
 		console.log(`${n} cuadros · ${(n / FPS).toFixed(1)} s de video en ${((Date.now() - tStart) / 1000).toFixed(0)} s`);

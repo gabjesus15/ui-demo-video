@@ -105,6 +105,8 @@ API del guion:
 | `smoothScroll(dy, ms)` | Scroll con aceleración y frenado, cuadro a cuadro |
 | `swapToAlt({ unload })` | Pasa a la pantalla precargada con un «push», sin navegar; vacía la de atrás salvo `unload: false` |
 | `intro()` / `introOut()` / `celebrate()` / `outro()` | Escenas de marca |
+| `hook(ms)` / `hookTitle(texto, [clave])` / `hookOut()` | Gancho para anuncios: chat que se llena de mensajes y título encima (`copy.hook`) |
+| `say(id)` / `voiceDuration(id)` | Voz en off de ElevenLabs (`voice` + `scripts/voiceover.cjs`), mezclada en AAC dentro del MP4 |
 | `frame()`, `frames.main`, `frames.alt` | Acceso a los iframes de la app |
 | `sleep(ms)` | Espera tiempo **del video** (con render, las esperas reales de la app no se ven) |
 
@@ -145,6 +147,7 @@ ui-demo-video/
 └── scripts/
     ├── record-demo.cjs         motor de grabación (render y live)
     ├── virtual-time.cjs        reloj virtual del motor render
+    ├── voiceover.cjs           voz en off con ElevenLabs (una pista por frase, con caché)
     ├── example-scenario.cjs    escenario de ejemplo comentado
     └── qa-tools.cjs            tirones, fotogramas, versión web y portada
 ```
