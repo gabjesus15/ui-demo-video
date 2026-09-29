@@ -50,7 +50,15 @@ const TEMPO = Number(flags.tempo || S.video?.tempo || 1);
 // Zonas seguras de redes: Instagram tapa arriba (~12 %, «Reels» y cámara), abajo (~20 %, nombre,
 // descripción, música) y el costado derecho (botones). Se bajan los títulos y la escena se achica y sube.
 const SAFE = flags.safe || S.video?.safe || null;
-const PERSP_SAFE = SAFE === 'instagram' ? ';transform:translate(-14px,-34px) scale(.84);transform-origin:50% 42%' : '';
+// Franja de títulos (video.band): el título vive arriba y la cámara nunca mete el teléfono debajo de él.
+const BAND = !!(flags.band || S.video?.band);
+const PERSP_SAFE = SAFE === 'instagram' && !BAND ? ';transform:translate(-14px,-34px) scale(.84);transform-origin:50% 42%' : '';
+const CAP_TOP = SAFE === 'instagram' ? 118 : 34;
+// Borde inferior de la franja (título de ~66 px + aire) y borde inferior seguro (Instagram tapa ~22 % abajo).
+const BAND_BOTTOM = CAP_TOP + 80;
+const SAFE_BOTTOM = SAFE === 'instagram' ? Math.round(H * 0.78) : H - 40;
+// Efectos de sonido: por defecto solo si hay voz en off (un video mudo de landing no los necesita).
+const SFX = S.video?.sfx ?? !!S.voice;
 // Sin apuro de tiempo real, render puede darse más calidad.
 const BITRATE = Number(flags.bitrate || S.video?.bitrate || (ENGINE === 'render' ? 8e6 : 6e6) * (DSF / 2) ** 2 * (FPS / 30));
 
@@ -113,7 +121,7 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 .ripple{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:2px solid rgba(255,255,255,.95);z-index:7;pointer-events:none;animation:rip ${d(0.55)} ${EASE_OUT} forwards}
 @keyframes rip{from{opacity:.9;transform:scale(.7)}to{opacity:0;transform:scale(2.3)}}
 /* Título: la píldora cambia de ancho con transición y las palabras suben desde una máscara (overflow). */
-#cap{position:absolute;left:50%;top:${SAFE === 'instagram' ? 118 : 34}px;z-index:9;white-space:nowrap;overflow:hidden;padding:12px 26px 8px;border-radius:22px;background:#fff;
+#cap{position:absolute;left:50%;top:${CAP_TOP}px;z-index:9;white-space:nowrap;overflow:hidden;padding:12px 26px 8px;border-radius:22px;background:#fff;
   box-shadow:0 18px 40px -18px rgba(30,35,120,.55);font-family:${brand.displayFont};font-size:46px;line-height:1;color:#101014;
   opacity:0;transform:translateX(-50%) translateY(-10px) scale(.94);transition:opacity ${d(0.22)},transform ${d(0.42)} ${EASE_OUT},width ${d(0.36)} ${EASE_CAM}}
 #cap.on{opacity:1;transform:translateX(-50%)}
@@ -167,6 +175,31 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 #hook.titled .scrim{opacity:1}
 #hook .ht{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);padding:0 34px;color:#fff;font-size:92px;line-height:.92;text-shadow:0 10px 40px rgba(0,0,0,.5)}
 #hook .ht .k{color:${brand.hookKey}}
+/* Gancho estilo pantalla bloqueada: la hora y las notificaciones que no paran. */
+#hook .clock{position:absolute;left:0;right:0;top:${SAFE === 'instagram' ? 128 : 70}px;text-align:center;color:#fff}
+#hook .clock b{display:block;font-weight:500;font-size:88px;letter-spacing:-.02em;line-height:1}
+#hook .clock span{font-size:21px;color:rgba(255,255,255,.75)}
+#hook.lock .head{display:none}
+#hook.lock .chat{top:${SAFE === 'instagram' ? 300 : 230}px}
+#hook.lock .bub{align-self:stretch;max-width:none;display:grid;grid-template-columns:42px 1fr;gap:0 12px;align-items:center;background:rgba(255,255,255,.16);color:#fff;border-radius:22px;padding:12px 16px;font-size:22px;box-shadow:none}
+#hook.lock .bub i{width:42px;height:42px;border-radius:11px;background:${brand.hookIcon || 'linear-gradient(135deg,#6366f1,#4338ca)'};display:grid;place-items:center;font-style:normal;font-size:22px}
+#hook.lock .bub small{color:rgba(255,255,255,.7);font-size:15px;margin:0}
+#hook .counter{position:absolute;right:30px;top:${SAFE === 'instagram' ? 250 : 190}px;background:#ef4444;color:#fff;font-weight:700;font-size:20px;border-radius:999px;padding:5px 14px;display:none}
+#hook.lock .counter{display:block}
+#hook .counter.bump{animation:bump ${d(0.28)} ${EASE_OUT}}
+/* Destello de corte: tapa el salto cuando se saltan pasos. */
+#flash{position:absolute;inset:0;z-index:30;pointer-events:none;background:#fff;opacity:0}
+#flash.go{animation:flash ${d(0.26)} ease-out}
+@keyframes flash{25%{opacity:.6}100%{opacity:0}}
+/* Tarjeta de pedido recibido (recompensa del final). */
+#ticket{position:absolute;left:50%;top:44%;width:400px;margin-left:-200px;z-index:12;background:#fff;border-radius:26px;padding:22px 24px;box-shadow:0 30px 70px -24px rgba(0,40,15,.55);
+  font-size:19px;color:#111827;opacity:0;transform:translateY(40px) scale(.9);transition:opacity ${d(0.3)},transform ${d(0.55)} cubic-bezier(.2,1.3,.3,1);pointer-events:none}
+#ticket.on{opacity:1;transform:none}
+#ticket small{display:block;font-weight:700;font-size:14px;letter-spacing:.08em;color:${brand.accent}}
+#ticket h4{font-size:28px;margin:4px 0 12px}
+#ticket ul{list-style:none;padding:0;margin:0 0 12px;border-top:1px solid #e5e7eb}
+#ticket li{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f1f5f9}
+#ticket .tot{display:flex;justify-content:space-between;font-weight:700;font-size:24px}
 #outro .cta{margin-top:34px;background:#fff;color:${brand.accent};font-weight:600;font-size:24px;padding:14px 28px;border-radius:999px;box-shadow:0 18px 40px -16px rgba(0,0,0,.45);opacity:0;transform:translateY(14px) scale(.92);transition:opacity ${d(0.45)} ${d(1)},transform ${d(0.6)} cubic-bezier(.2,1.3,.3,1) ${d(1)}}
 #outro.in .cta{opacity:1;transform:none}
 /* Solo motor live: un píxel que cambia en cada cuadro, porque la captura solo emite fotogramas si algo cambia. */
@@ -179,9 +212,9 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;z-index:9;pointer-eve
 <iframe id="main" src="about:blank" allow="geolocation"></iframe><iframe id="alt" src="about:blank" allow="geolocation"></iframe></div></div></div></div>
 <div id="cap"></div><div id="finger"></div>${ENGINE === 'live' ? '<div id="tick"></div>' : ''}
 <div id="celebrate" class="card"><div class="big" id="celebrateText"></div><p>${copy.celebrateSub}</p></div>
-<canvas id="fx"></canvas>
+<canvas id="fx"></canvas><div id="ticket"></div><div id="flash"></div>
 <div id="intro" class="card"><div class="big l1" id="i1"></div><div class="big l2" id="i2"></div></div>
-${copy.hook ? `<div id="hook" class="card"><div class="head"><div class="av">${escHtml(copy.hook.avatar || '💬')}</div><div>${escHtml(copy.hook.chatName || 'Clientes')}<small>${escHtml(copy.hook.status || 'escribiendo…')}</small></div><div class="badge" id="hkBadge">${copy.hook.unread ?? 3}</div></div><div class="chat"><div class="col" id="hkCol"></div></div><div class="scrim"></div><div class="big ht" id="hkTitle"></div></div>` : ''}
+${copy.hook ? `<div id="hook" class="card${copy.hook.style === 'lock' ? ' lock' : ''}"><div class="head"><div class="av">${escHtml(copy.hook.avatar || '💬')}</div><div>${escHtml(copy.hook.chatName || 'Clientes')}<small>${escHtml(copy.hook.status || 'escribiendo…')}</small></div><div class="badge" id="hkBadge">${copy.hook.unread ?? 3}</div></div><div class="clock"><b>${escHtml(copy.hook.time || '20:47')}</b><span>${escHtml(copy.hook.date || 'viernes')}</span></div><div class="counter" id="hkCounter">${copy.hook.unread ?? 3}</div><div class="chat"><div class="col" id="hkCol"></div></div><div class="scrim"></div><div class="big ht" id="hkTitle"></div></div>` : ''}
 <div id="outro" class="card"><div class="big" id="o1"></div>${copy.cta ? `<div class="cta">${escHtml(copy.cta)}</div>` : ''}${brand.logo ? `<img src="${brand.logo}" alt="">` : ''}<p class="u">${brand.site}</p></div>
 </div>
 <script>
@@ -193,13 +226,20 @@ window.intro=()=>{words($('i1'),INTRO[0]||'',{step:90});if(INTRO[1])setTimeout((
 window.introOut=()=>$('intro').classList.add('out');
 const HOOK=${esc(copy.hook)};
 /* Mensajes cada step ms (con un poco de variación, como un chat real); el contador sube con cada uno. */
-window.hook=(step=320)=>{if(!HOOK)return;/* Con gancho no hay intro de marca: su tarjeta taparía la escena. */const it=$('intro');if(it&&!it.classList.contains('out'))it.style.display='none';const col=$('hkCol'),chat=col.parentElement,badge=$('hkBadge');let n=Number(badge.textContent)||0;
+window.hook=(step=320)=>{if(!HOOK)return;/* Con gancho no hay intro de marca: su tarjeta taparía la escena. */const it=$('intro');if(it&&!it.classList.contains('out'))it.style.display='none';const col=$('hkCol'),chat=col.parentElement,lock=HOOK.style==='lock',badge=lock?$('hkCounter'):$('hkBadge');let n=Number(badge.textContent)||0;
   (HOOK.messages||[]).forEach((m,i)=>setTimeout(()=>{const b=document.createElement('div');b.className='bub';const o=typeof m==='string'?{text:m}:m;
-    b.innerHTML=(o.from?'<small></small>':'')+'<span></span>';if(o.from)b.querySelector('small').textContent=o.from;b.querySelector('span').textContent=o.text;col.appendChild(b);
-    col.style.transform='translateY('+(chat.clientHeight-col.offsetHeight)+'px)';badge.textContent=String(n+=1+(i%3===2?1:0));badge.classList.remove('bump');void badge.offsetWidth;badge.classList.add('bump');
+    if(lock){b.innerHTML='<i></i><div><small></small><span></span></div>';b.querySelector('i').textContent=HOOK.icon||'💬';b.querySelector('small').textContent=(o.from||'')+' · ahora';}
+    else b.innerHTML=(o.from?'<small></small>':'')+'<span></span>';if(o.from&&!lock)b.querySelector('small').textContent=o.from;b.querySelector('span').textContent=o.text;col.appendChild(b);
+    col.style.transform='translateY('+(chat.clientHeight-col.offsetHeight)+'px)';badge.textContent=(lock?'+':'')+String(n+=lock?(2+(i%4)):(1+(i%3===2?1:0)));badge.classList.remove('bump');void badge.offsetWidth;badge.classList.add('bump');
   },(i*step+(i%2?40:0))*T));};
 window.hookTitle=(text,key=[])=>{$('hook').classList.add('titled');words($('hkTitle'),text,{key,step:80});};
 window.hookOut=()=>$('hook').classList.add('out');
+window.flash=()=>{const f=$('flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go');};
+window.ticket=(t)=>{const el=$('ticket');if(!t){el.classList.remove('on');return;}el.innerHTML='';
+  const sm=document.createElement('small');sm.textContent=t.label||'NUEVO PEDIDO';const h=document.createElement('h4');h.textContent=t.title||'';const ul=document.createElement('ul');
+  (t.rows||[]).forEach(([k,v])=>{const li=document.createElement('li');const a=document.createElement('span');a.textContent=k;const b=document.createElement('b');b.textContent=v;li.append(a,b);ul.appendChild(li);});
+  const tot=document.createElement('div');tot.className='tot';const x=document.createElement('span');x.textContent='Total';const y=document.createElement('b');y.textContent=t.total||'';tot.append(x,y);
+  el.append(sm,h,ul,tot);void el.offsetWidth;el.classList.add('on');};
 /* cam(x, y, escala, { ms, ry, rx }) — ms cambia la duración solo de este movimiento. */
 window.cam=(x,y,s,o={})=>{const c=$('cam');c.style.transitionDuration=((o.ms||1000)*T)+'ms';c.style.transform='translate3d('+x+'px,'+y+'px,0) scale('+s+') rotateY('+(o.ry||0)+'deg) rotateX('+(o.rx||0)+'deg)';};
 /* Sin transición (para dejar el teléfono dibujado antes de grabar). */
@@ -265,7 +305,20 @@ window.encFrame=(b64)=>{if(err)throw new Error(err);queue=queue.then(()=>add(b64
 /* Voz en off: cada frase se ubica en su instante del video, se mezcla en estéreo a 48 kHz y se codifica en AAC. */
 window.encAudio=async({clips,total,gain})=>{const SR=48000;const ctx=new OfflineAudioContext(2,Math.ceil(total*SR),SR);const master=ctx.createGain();master.gain.value=gain;
   const comp=ctx.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=3;comp.attack.value=.004;comp.release.value=.2;master.connect(comp).connect(ctx.destination);
-  for(const c of clips){const buf=await ctx.decodeAudioData(Uint8Array.from(atob(c.b64),ch=>ch.charCodeAt(0)).buffer);const src=ctx.createBufferSource();src.buffer=buf;
+  const noise=ctx.createBuffer(1,SR,SR);{const d=noise.getChannelData(0);let x=12345;for(let i=0;i<SR;i++){x=(x*1103515245+12345)&0x7fffffff;d[i]=x/0x3fffffff-1;}}
+  const env=(g,t,a,peak,dec)=>{g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(.0008,t+a+dec);};
+  const tone=(t,f,type,peak,dec,dst)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=f;env(g,t,.005,peak,dec);o.connect(g).connect(dst);o.start(t);o.stop(t+dec+.05);};
+  const burst=(t,len,dst,{type='highpass',f=1500,f2=null,q=.7,peak=.5,a=.003}={})=>{const src=ctx.createBufferSource();src.buffer=noise;const bq=ctx.createBiquadFilter();bq.type=type;bq.frequency.setValueAtTime(f,t);if(f2)bq.frequency.exponentialRampToValueAtTime(f2,t+len);bq.Q.value=q;
+    const g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+(a||len*.45));g.gain.exponentialRampToValueAtTime(.0008,t+len);src.connect(bq).connect(g).connect(dst);src.start(t,Math.random()*.5,len+.05);};
+  /* Efectos sintetizados (sin archivos ni licencias): notificación, toque, barrido, éxito, campanita. */
+  const SYN={pop:(t,d)=>{tone(t,1175,'sine',.42,.13,d);tone(t+.075,1760,'sine',.36,.2,d);},
+    tap:(t,d)=>burst(t,.035,d,{f:1800,peak:.35}),
+    whoosh:(t,d)=>burst(t,.42,d,{type:'bandpass',f:350,f2:2600,q:1.1,peak:.38,a:.2}),
+    success:(t,d)=>[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(t+i*.085,f,'triangle',.32,.55,d)),
+    ding:(t,d)=>{tone(t,1318.5,'sine',.36,1.1,d);tone(t,2637,'sine',.1,.6,d);}};
+  const sfxBus=ctx.createGain();sfxBus.gain.value=.8;sfxBus.connect(comp);
+  for(const c of clips){if(c.synth){const g=ctx.createGain();g.gain.value=c.volume??1;g.connect(sfxBus);(SYN[c.synth]||SYN.pop)(c.at,g);continue;}
+    const buf=await ctx.decodeAudioData(Uint8Array.from(atob(c.b64),ch=>ch.charCodeAt(0)).buffer);const src=ctx.createBufferSource();src.buffer=buf;
     const g=ctx.createGain();g.gain.value=c.volume??1;src.connect(g).connect(master);src.start(c.at);}
   const out=await ctx.startRendering();let aerr=null;
   const aenc=new AudioEncoder({output:(chunk,meta)=>muxer.addAudioChunk(chunk,meta),error:(e)=>{aerr=String(e);}});
@@ -420,7 +473,9 @@ const readBlob = async (pg) => {
 
 	// ---- Reloj y captura ----
 	// live: el tiempo es el real. render: el tiempo lo lleva `clock` y avanza de a un tick (1/60 s).
-	const clock = { vt: 0, stop: false, waiters: [] };
+	// skipped: tiempo que corrió fuera de cámara (offCamera). El video (y la voz) usan vt - skipped.
+	const clock = { vt: 0, stop: false, waiters: [], capture: true, skipped: 0 };
+	const nowVideo = () => (clock.vt - clock.skipped) / 1000;
 	const sleep = ENGINE === 'render'
 		? (ms) => new Promise((r) => { clock.waiters.push({ at: clock.vt + ms * TEMPO, r }); })
 		: (ms) => realSleep(ms * TEMPO);
@@ -431,6 +486,9 @@ const readBlob = async (pg) => {
 	if (S.voice && !voice) { console.error(`Falta la voz: corre primero  node ${path.join(__dirname, 'voiceover.cjs')} ${scenarioPath} ${OUT}`); process.exit(1); }
 	if (voice) for (const id of Object.keys(S.voice.lines)) if (voice[id]?.text !== S.voice.lines[id]) { console.error(`La frase «${id}» cambió: vuelve a correr voiceover.cjs`); process.exit(1); }
 	const clips = [];
+	let voiceEnd = 0; // segundo del video en que termina la última frase
+	let captionOn = false;
+	let camState = { x: 0, y: 1150, s: 0.9 };
 
 	let encPage = null;
 	let pump = null;
@@ -439,7 +497,7 @@ const readBlob = async (pg) => {
 		encPage = await encCtx.newPage();
 		await encPage.goto(`${STAGE_ORIGIN}${S.stageBlankPath || '/robots.txt'}`); // origen seguro (WebCodecs lo exige)
 		await encPage.setContent(ENCODER, { waitUntil: 'networkidle' });
-		const codec = await encPage.evaluate((o) => window.encInit(o), { w: Math.round(W * DSF), h: Math.round(H * DSF), rate: FPS, bitrate: BITRATE, audio: !!voice });
+		const codec = await encPage.evaluate((o) => window.encInit(o), { w: Math.round(W * DSF), h: Math.round(H * DSF), rate: FPS, bitrate: BITRATE, audio: !!voice || SFX });
 		const cdp = await context.newCDPSession(page);
 		console.log('render', JSON.stringify({ w: Math.round(W * DSF), h: Math.round(H * DSF), fps: FPS, codec, mbps: +(BITRATE / 1e6).toFixed(1) }));
 
@@ -450,7 +508,8 @@ const readBlob = async (pg) => {
 			let captured = 0, pending = null;
 			for (let i = 0; !clock.stop; i++) {
 				const to = i * TICK;
-				const paint = to + 1e-6 >= (captured * 1000) / FPS;
+				if (!clock.capture && i > 0) clock.skipped += TICK;
+				const paint = clock.capture && to - clock.skipped + 1e-6 >= (captured * 1000) / FPS;
 				// Todos los documentos avanzan al mismo instante (los que no tienen reloj devuelven al tiro).
 				const a0 = Date.now();
 				await Promise.all(page.frames().map((f) => { const s0 = Date.now(); return Promise.race([
@@ -496,25 +555,52 @@ const readBlob = async (pg) => {
 		frame: () => frame,
 		useFrame: (f) => { frame = f; },
 		/** cam(x, y, escala, { ms, ry, rx }). Compatibilidad: cam(x, y, escala, rotY, rotX). */
-		cam: (x, y, s, o = {}, rx = 0) => page.evaluate(([a, b, c, opts]) => window.cam(a, b, c, opts), [x, y, s, typeof o === 'number' ? { ry: o, rx } : o]),
-		caption: (text, key = []) => page.evaluate(([t, k]) => window.caption(t, k), [text, key]),
+		/** cam(x, y, escala, { ms, ry, rx, free }). Con franja de títulos, el borde superior del teléfono no sube de ella (free: sin límite). */
+		cam: (x, y, s, o = {}, rx = 0) => {
+			const opts = typeof o === 'number' ? { ry: o, rx } : o;
+			if (BAND && captionOn && !opts.free) y = Math.max(y, BAND_BOTTOM - H / 2 + 432 * s);
+			camState = { x, y, s };
+			return page.evaluate(([a, b, c, op]) => window.cam(a, b, c, op), [x, y, s, opts]);
+		},
+		caption: async (text, key = []) => {
+			captionOn = !!text;
+			await page.evaluate(([t, k]) => window.caption(t, k), [text, key]);
+			// Si el teléfono estaba metido en la franja, baja a su lugar.
+			if (BAND && captionOn && camState.y < BAND_BOTTOM - H / 2 + 432 * camState.s) await api.cam(camState.x, camState.y, camState.s, { ms: 600 });
+		},
 		intro: () => page.evaluate(() => window.intro()),
 		introOut: () => page.evaluate(() => window.introOut()),
-		celebrate: () => page.evaluate(() => window.celebrate()),
-		outro: () => page.evaluate(() => window.outro()),
+		celebrate: () => { api.sfx('success', { at: 0.42 * TEMPO }); return page.evaluate(() => window.celebrate()); },
+		outro: () => { api.sfx('whoosh', { volume: 0.8 }); return page.evaluate(() => window.outro()); },
 		fingerHide: () => page.evaluate(() => window.fingerHide()),
-		hook: (step) => page.evaluate((st) => window.hook(st), step),
+		hook: async (step = 320) => {
+			await page.evaluate((st) => window.hook(st), step);
+			(copy.hook?.messages || []).forEach((_, i) => api.sfx('pop', { at: ((i * step + (i % 2 ? 40 : 0)) * TEMPO) / 1000, volume: 0.55 + (i % 3) * 0.1 }));
+		},
 		hookTitle: (text, key = []) => page.evaluate(([t, k]) => window.hookTitle(t, k), [text, key]),
-		hookOut: () => page.evaluate(() => window.hookOut()),
+		hookOut: () => { api.sfx('whoosh'); return page.evaluate(() => window.hookOut()); },
 		/** Duración (s) de una frase de la voz en off. */
 		voiceDuration: (id) => voice?.[id]?.duration ?? 0,
 		/** Pone a sonar la frase `id` en este instante del video (no espera). `wait: true` espera a que termine. */
 		say: async (id, { wait = false, volume = 1, tail = 0 } = {}) => {
 			if (!voice?.[id]) throw new Error(`No hay voz para «${id}»`);
 			if (ENGINE !== 'render') { console.warn('say(): la voz solo se mezcla con el motor render'); }
-			clips.push({ id, at: clock.vt / 1000, volume });
+			clips.push({ id, at: nowVideo(), volume });
+			voiceEnd = nowVideo() + voice[id].duration;
 			if (wait) await sleep(voice[id].duration * 1000 / TEMPO + tail);
 		},
+		/** Espera a que termine la última frase (+ gap ms): la voz corre continua, sin silencios largos. */
+		waitVoice: async (gap = 120) => { const left = voiceEnd * 1000 + gap - nowVideo() * 1000; if (left > 0) await sleep(left / TEMPO); },
+		/** Efecto de sonido sintetizado: pop, tap, whoosh, success, ding. `at` en segundos desde ahora. */
+		sfx: (name, { volume = 1, at = 0 } = {}) => { if (SFX) clips.push({ synth: name, at: nowVideo() + at, volume }); },
+		/** Saltar pasos: lo que pasa en fn corre fuera de cámara (el tiempo del video no avanza) y se entra con un destello. */
+		offCamera: async (fn, { settle = 350 } = {}) => {
+			if (ENGINE !== 'render') return fn();
+			clock.capture = false;
+			try { await fn(); await sleep(settle); } finally { clock.capture = true; }
+		},
+		cut: async (fn, opts) => { await api.offCamera(fn, opts); await page.evaluate(() => window.flash()); api.sfx('whoosh', { volume: 0.7 }); },
+		ticket: (t) => { if (t) api.sfx('ding'); return page.evaluate((x) => window.ticket(x), t || null); },
 		/** Cambio a la pantalla precargada con un «push» (en vez de navegar: una navegación congela ~1 s). */
 		// { unload: false } si el guion vuelve a usar frames.main después del cambio.
 		swapToAlt: async ({ unload = true } = {}) => { await page.evaluate((u) => window.swapToAlt(u), unload); frame = frames.alt; },
@@ -558,10 +644,26 @@ const readBlob = async (pg) => {
 	 * Encuadra un elemento: calcula la cámara para que quede a la altura `at` (0 arriba, 1 abajo)
 	 * con el acercamiento `scale`. Evita adivinar valores de `y` a mano.
 	 */
-	api.focus = async (target, { scale = 1.12, at = 0.55, x = 0, ms } = {}) => {
+	api.focus = async (target, { scale = 1.12, at = null, x = 0, ms, minScale = 0.66 } = {}) => {
 		const el = resolve(target);
 		await el.waitFor({ state: 'visible', timeout: WAIT_MS });
 		const { y } = await centerIn(el);
+		if (BAND) {
+			// Centro de la ventana libre (entre la franja y el borde seguro de abajo); si el elemento está muy abajo
+			// en la pantalla de la app, el teléfono se achica lo necesario para que no suba a la franja.
+			const top = captionOn ? BAND_BOTTOM : SAFE === 'instagram' ? 118 : 30;
+			let want = at != null ? at * H : (top + SAFE_BOTTOM) / 2;
+			// Si con esa escala el teléfono se metería en la franja, se apoya justo bajo ella (el elemento baja).
+			// Solo si así se saldría de la zona segura de abajo se achica, y nunca por debajo de minScale (legible).
+			if (want - scale * (y + 10) < top) {
+				const lowest = SAFE === 'instagram' ? H * 0.84 : H - 30;
+				if (top + scale * (y + 10) > lowest) scale = Math.max(minScale, (lowest - top) / (y + 10));
+				want = top + scale * (y + 10);
+			}
+			const ty = Math.round(want - H / 2 - scale * (y - 422));
+			return api.cam(x, ty, +scale.toFixed(3), { ms });
+		}
+		at = at ?? 0.55;
 		// En la cámara: pantalla del teléfono arriba a la izquierda en (-195, -422) respecto del centro de la escena.
 		const ty = Math.round(at * H - H / 2 - scale * (y - 422));
 		const lim = 432 * scale; // nunca más allá del borde del teléfono
@@ -579,6 +681,7 @@ const readBlob = async (pg) => {
 		await page.evaluate(([a, b]) => window.fingerTo(a, b), [again.x, again.y]);
 		await sleep(140);
 		await page.evaluate(() => window.press());
+		api.sfx('tap', { volume: 0.5 });
 		await sleep(hold);
 		// click() del DOM: no depende de la geometría con transforms de la escena.
 		if (click) await el.evaluate((n) => n.click());
@@ -606,10 +709,11 @@ const readBlob = async (pg) => {
 		await sleep(300);
 		clock.stop = true;
 		await pump;
-		if (voice && clips.length) {
-			const payload = clips.map((c) => ({ b64: fs.readFileSync(path.join(voiceDir, voice[c.id].file)).toString('base64'), at: c.at, volume: c.volume }));
-			const secs = await encPage.evaluate((o) => window.encAudio(o), { clips: payload, total: clock.vt / 1000, gain: S.voice.gain ?? 1 });
-			console.log(`voz: ${clips.length} frases mezcladas (${secs.toFixed(1)} s de audio)`);
+		if (clips.length || voice || SFX) {
+			// Sin clips igual se escribe una pista (silencio): el MP4 se declaró con audio al empezar.
+			const payload = clips.map((c) => (c.synth ? c : { b64: fs.readFileSync(path.join(voiceDir, voice[c.id].file)).toString('base64'), at: c.at, volume: c.volume }));
+			const secs = await encPage.evaluate((o) => window.encAudio(o), { clips: payload, total: nowVideo(), gain: S.voice?.gain ?? 1 });
+			console.log(`audio: ${clips.filter((c) => !c.synth).length} frases y ${clips.filter((c) => c.synth).length} efectos (${secs.toFixed(1)} s)`);
 		}
 		const { frames: n } = await encPage.evaluate(() => window.encEnd());
 		fs.writeFileSync(file, await readBlob(encPage));

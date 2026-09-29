@@ -139,8 +139,24 @@ Para publicidad (Reels, TikTok) el video necesita tres cosas más, y el motor la
 - **Servicios externos lentos** (geocodificación, una base lenta): con render la espera no se ve, así que el motor espera
   hasta 60 s (`--wait=`). Si un servicio es inestable, responde esa **lectura** con `fakes` usando su respuesta real.
 
-**Guion que conecta** (lo que se aplicó): nombrar al público y su dolor cotidiano en el primer segundo («Si tienes
-restaurante, ya te sabes esta canción…»), humor que lo haga sentirse identificado, mostrar la solución real funcionando
+- **Saltar pasos** (`api.cut(fn)` / `api.offCamera(fn)`): lo que pasa dentro de `fn` corre fuera de cámara (el tiempo
+  del video no avanza, pero la app sí termina sus animaciones) y se vuelve con un destello y un barrido. Úsalo para el
+  carrito, formularios o pasos repetidos: en un anuncio, cada paso que no aporta es gente que se va.
+- **Franja de títulos** (`video: { band: true }`): el título vive arriba y la cámara nunca sube el teléfono debajo de él.
+  `focus()` ubica el elemento en la ventana libre (entre la franja y el borde seguro de Instagram); si el botón está muy
+  abajo, el teléfono baja en vez de achicarse, y nunca pasa de `minScale` (0,66) para que se lea.
+- **Efectos de sonido sintetizados** (`video: { sfx: true }`, activos si hay voz): notificación en cada mensaje del gancho,
+  toque en cada `tap`, barrido en cortes y cambios de escena, éxito en `celebrate()` y campanita en `ticket()`. También
+  `api.sfx('pop'|'tap'|'whoosh'|'success'|'ding')`. Se generan con Web Audio: sin archivos ni licencias.
+- **Voz continua**: `api.waitVoice(ms)` espera a que termine la frase anterior; encadena `say()` → acciones → `waitVoice()`
+  para que no queden silencios. Las acciones de cada frase tienen que caber en ella (si no, córtalas con `cut`).
+- **Gancho «pantalla bloqueada»** (`copy.hook.style: 'lock'`, con `time`, `date`, `icon`): la hora y notificaciones que no
+  paran, con un contador que se dispara. Se entiende al instante: «este es mi teléfono a la hora de la cena».
+- **Recompensa** (`api.ticket({ label, title, rows, total })`): una tarjeta de «nuevo pedido» con los datos del pedido
+  falso de la toma. Cierra el círculo del gancho: de 100 mensajes a un pedido completo.
+
+**Guion que conecta** (lo que se aplicó): nombrar al público y su dolor cotidiano en el primer segundo («Así suena tu
+teléfono a la hora de la cena…», con el sonido de las notificaciones), humor que lo haga sentirse identificado, mostrar la solución real funcionando
 y cerrar con una frase que vuelva al gancho («Deja el chat para los amigos»). El texto en pantalla debe contar la historia
 sin sonido: la mayoría mira en silencio.
 

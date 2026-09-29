@@ -106,6 +106,8 @@ API del guion:
 | `swapToAlt({ unload })` | Pasa a la pantalla precargada con un «push», sin navegar; vacía la de atrás salvo `unload: false` |
 | `intro()` / `introOut()` / `celebrate()` / `outro()` | Escenas de marca |
 | `hook(ms)` / `hookTitle(texto, [clave])` / `hookOut()` | Gancho para anuncios: chat que se llena de mensajes y título encima (`copy.hook`) |
+| `cut(fn)` / `offCamera(fn)` | Salta pasos: `fn` corre fuera de cámara y se vuelve con un destello |
+| `sfx(nombre)` / `ticket({...})` / `waitVoice(ms)` | Efectos sintetizados, tarjeta de «nuevo pedido» y voz continua |
 | `say(id)` / `voiceDuration(id)` | Voz en off de ElevenLabs (`voice` + `scripts/voiceover.cjs`), mezclada en AAC dentro del MP4 |
 | `frame()`, `frames.main`, `frames.alt` | Acceso a los iframes de la app |
 | `sleep(ms)` | Espera tiempo **del video** (con render, las esperas reales de la app no se ven) |
