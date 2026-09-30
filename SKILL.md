@@ -157,6 +157,11 @@ Para publicidad (Reels, TikTok) el video necesita tres cosas más, y el motor la
   para que no queden silencios. Las acciones de cada frase tienen que caber en ella (si no, córtalas con `cut`).
 - **Gancho «pantalla bloqueada»** (`copy.hook.style: 'lock'`, con `time`, `date`, `icon`): la hora y notificaciones que no
   paran, con un contador que se dispara. Se entiende al instante: «este es mi teléfono a la hora de la cena».
+- **Dato en grande** (`api.chip('$14.00 = Bs. 12.010,43', [2, 3])`, `chip(null)` lo oculta): un globo sobre la app para
+  números que en el celular no se leerían (una conversión, un total). Lee el dato de la propia app, no lo inventes.
+- **Nunca quieto** (`api.voiceLeft()`): si la frase dura más que la acción, un `focus()` lento con `ms: api.voiceLeft()`
+  llena el tiempo con un acercamiento. Apúntalo a algo de la mitad superior de la pantalla: abajo, la franja de títulos
+  no deja acercarse y el movimiento no se nota. Oculta el dedo (`fingerHide`) mientras tanto.
 - **Recompensa** (`api.ticket({ label, title, rows, total })`): una tarjeta de «nuevo pedido» con los datos del pedido
   falso de la toma. Cierra el círculo del gancho: de 100 mensajes a un pedido completo.
 

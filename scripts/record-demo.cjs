@@ -187,6 +187,11 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 #hook .counter{position:absolute;right:30px;top:${SAFE === 'instagram' ? 250 : 190}px;background:#ef4444;color:#fff;font-weight:700;font-size:20px;border-radius:999px;padding:5px 14px;display:none}
 #hook.lock .counter{display:block}
 #hook .counter.bump{animation:bump ${d(0.28)} ${EASE_OUT}}
+/* Globo de dato (p. ej. un monto convertido): grande, sobre la app, para que se lea en el celular. */
+#chip{position:absolute;left:50%;top:58%;z-index:12;white-space:nowrap;background:#111827;color:#fff;font-family:${brand.displayFont};font-size:52px;line-height:1;padding:16px 28px 10px;border-radius:24px;
+  box-shadow:0 24px 50px -18px rgba(0,0,0,.55);opacity:0;transform:translateX(-50%) translateY(24px) scale(.85);transition:opacity ${d(0.25)},transform ${d(0.5)} cubic-bezier(.2,1.3,.3,1);pointer-events:none}
+#chip.on{opacity:1;transform:translateX(-50%)}
+#chip .k{color:${brand.hookKey}}
 /* Destello de corte: tapa el salto cuando se saltan pasos. */
 #flash{position:absolute;inset:0;z-index:30;pointer-events:none;background:#fff;opacity:0}
 #flash.go{animation:flash ${d(0.26)} ease-out}
@@ -212,7 +217,7 @@ canvas#fx{position:absolute;inset:0;width:100%;height:100%;z-index:9;pointer-eve
 <iframe id="main" src="about:blank" allow="geolocation"></iframe><iframe id="alt" src="about:blank" allow="geolocation"></iframe></div></div></div></div>
 <div id="cap"></div><div id="finger"></div>${ENGINE === 'live' ? '<div id="tick"></div>' : ''}
 <div id="celebrate" class="card"><div class="big" id="celebrateText"></div><p>${copy.celebrateSub}</p></div>
-<canvas id="fx"></canvas><div id="ticket"></div><div id="flash"></div>
+<canvas id="fx"></canvas><div id="ticket"></div><div id="chip"></div><div id="flash"></div>
 <div id="intro" class="card"><div class="big l1" id="i1"></div><div class="big l2" id="i2"></div></div>
 ${copy.hook ? `<div id="hook" class="card${copy.hook.style === 'lock' ? ' lock' : ''}"><div class="head"><div class="av">${escHtml(copy.hook.avatar || '💬')}</div><div>${escHtml(copy.hook.chatName || 'Clientes')}<small>${escHtml(copy.hook.status || 'escribiendo…')}</small></div><div class="badge" id="hkBadge">${copy.hook.unread ?? 3}</div></div><div class="clock"><b>${escHtml(copy.hook.time || '20:47')}</b><span>${escHtml(copy.hook.date || 'viernes')}</span></div><div class="counter" id="hkCounter">${copy.hook.unread ?? 3}</div><div class="chat"><div class="col" id="hkCol"></div></div><div class="scrim"></div><div class="big ht" id="hkTitle"></div></div>` : ''}
 <div id="outro" class="card"><div class="big" id="o1"></div>${copy.cta ? `<div class="cta">${escHtml(copy.cta)}</div>` : ''}${brand.logo ? `<img src="${brand.logo}" alt="">` : ''}<p class="u">${brand.site}</p></div>
@@ -234,6 +239,7 @@ window.hook=(step=320)=>{if(!HOOK)return;/* Con gancho no hay intro de marca: su
   },(i*step+(i%2?40:0))*T));};
 window.hookTitle=(text,key=[])=>{$('hook').classList.add('titled');words($('hkTitle'),text,{key,step:80});};
 window.hookOut=()=>$('hook').classList.add('out');
+window.chip=(t,key=[])=>{const c=$('chip');if(!t){c.classList.remove('on');return;}c.innerHTML='';t.split(' ').forEach((w,i)=>{const s=document.createElement('span');if(key.includes(i))s.className='k';s.textContent=(i?' ':'')+w;c.appendChild(s);});void c.offsetWidth;c.classList.add('on');};
 window.flash=()=>{const f=$('flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go');};
 window.ticket=(t)=>{const el=$('ticket');if(!t){el.classList.remove('on');return;}el.innerHTML='';
   const sm=document.createElement('small');sm.textContent=t.label||'NUEVO PEDIDO';const h=document.createElement('h4');h.textContent=t.title||'';const ul=document.createElement('ul');
@@ -589,6 +595,10 @@ const readBlob = async (pg) => {
 			voiceEnd = nowVideo() + voice[id].duration;
 			if (wait) await sleep(voice[id].duration * 1000 / TEMPO + tail);
 		},
+		/** ms que faltan para que termine la última frase (0 si ya terminó). Útil para que un movimiento dure lo que la voz. */
+		voiceLeft: () => Math.max(0, voiceEnd * 1000 - nowVideo() * 1000),
+		/** Globo grande con un dato (índices de palabras resaltadas); chip(null) lo oculta. */
+		chip: (text, key = []) => { if (text) api.sfx('pop', { volume: 0.6 }); return page.evaluate(([t, k]) => window.chip(t, k), [text || null, key]); },
 		/** Espera a que termine la última frase (+ gap ms): la voz corre continua, sin silencios largos. */
 		waitVoice: async (gap = 120) => { const left = voiceEnd * 1000 + gap - nowVideo() * 1000; if (left > 0) await sleep(left / TEMPO); },
 		/** Efecto de sonido sintetizado: pop, tap, whoosh, success, ding. `at` en segundos desde ahora. */
