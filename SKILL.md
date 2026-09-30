@@ -178,6 +178,11 @@ sin sonido: la mayoría mira en silencio.
 
 - La posición se calcula en coordenadas del iframe y se convierte a la escena **en cada cuadro**, con `getBoundingClientRect` del iframe, que ya incluye la cámara. Si la cámara o un panel se mueven, el dedo sigue encima.
 - Tras `swapToAlt()` el iframe principal se vacía para no gastar recursos. Si el guion lo vuelve a usar, llama a `swapToAlt({ unload: false })`.
+- **El toque siempre a la vista:** antes de viajar, `tap` calcula dónde quedará el botón con la cámara actual (aunque siga
+  moviéndose). Si queda fuera de cuadro, bajo la franja de títulos o bajo la interfaz de Instagram, reencuadra suave y
+  recién ahí toca. Sin esto, un acercamiento lento dejaba el botón de abajo fuera y el dedo y su sonido ocurrían donde
+  no se veía. Con `CAM_LOG=1` se ve cada reencuadre («tap fuera de cuadro… se reencuadra»).
+- Los efectos de sonido no suenan fuera de cámara (`offCamera`/`cut`): solo se oye lo que se ve.
 - `tap` mide, viaja, **vuelve a medir** (el panel pudo terminar de subir), presiona y recién ahí hace `element.click()` del DOM, que no depende de la geometría con transforms.
 - Elementos en algo fijo (diálogos, barra inferior): nunca se scrollea para alcanzarlos.
 - **Hidratación:** un clic antes de que la página hidrate hace una navegación completa en vez de abrir el panel. Espera, o reintenta hasta que aparezca lo esperado sin volver a tocar mientras anima.

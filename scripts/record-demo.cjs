@@ -603,7 +603,7 @@ const readBlob = async (pg) => {
 		/** Espera a que termine la última frase (+ gap ms): la voz corre continua, sin silencios largos. */
 		waitVoice: async (gap = 120) => { const left = voiceEnd * 1000 + gap - nowVideo() * 1000; if (left > 0) await sleep(left / TEMPO); },
 		/** Efecto de sonido sintetizado: pop, tap, whoosh, success, ding. `at` en segundos desde ahora. */
-		sfx: (name, { volume = 1, at = 0 } = {}) => { if (SFX) clips.push({ synth: name, at: nowVideo() + at, volume }); },
+		sfx: (name, { volume = 1, at = 0 } = {}) => { if (SFX && clock.capture) clips.push({ synth: name, at: nowVideo() + at, volume }); },
 		/** Saltar pasos: lo que pasa en fn corre fuera de cámara (el tiempo del video no avanza) y se entra con un destello. */
 		offCamera: async (fn, { settle = 350 } = {}) => {
 			if (ENGINE !== 'render') return fn();
@@ -681,11 +681,31 @@ const readBlob = async (pg) => {
 		return api.cam(x, Math.max(-lim, Math.min(lim, ty)), scale, { ms });
 	};
 
+	/**
+	 * ¿Se verá este punto de la app con la cámara donde va a quedar (camState, aunque siga moviéndose)?
+	 * Zona visible: bajo la franja de títulos y por encima de lo que tapa Instagram abajo.
+	 */
+	const inView = ({ x, y }) => {
+		const sx = W / 2 + camState.x + camState.s * (x - 195);
+		const sy = H / 2 + camState.y + camState.s * (y - 422);
+		const top = BAND && captionOn ? BAND_BOTTOM : SAFE === 'instagram' ? 118 : 16;
+		const bottom = SAFE === 'instagram' ? H * 0.86 : H - 16;
+		return sx > 24 && sx < W - 24 && sy > top + 12 && sy < bottom;
+	};
+
 	/** El dedo viaja al objetivo, se vuelve a medir (pudo moverse), presiona y recién ahí hace clic. */
 	api.tap = async (target, { travel = 560, hold = 130, click = true } = {}) => {
 		const el = resolve(target);
 		await el.waitFor({ state: 'visible', timeout: WAIT_MS });
-		const { x, y } = await api.centerOf(el);
+		let { x, y } = await api.centerOf(el);
+		// Si con el zoom actual el botón queda fuera de cuadro (o bajo la interfaz de Instagram), se reencuadra
+		// antes de tocar: si no, el dedo y el sonido del toque ocurren donde no se ve.
+		if (!inView({ x, y }) && !PERSP_SAFE) {
+			if (process.env.CAM_LOG) console.log(`tap fuera de cuadro en ${nowVideo().toFixed(2)}s: se reencuadra`);
+			await api.focus(el, { scale: Math.min(camState.s, 1.1), ms: 480 });
+			await sleep(500);
+			({ x, y } = await centerIn(el));
+		}
 		await page.evaluate(([a, b]) => window.fingerTo(a, b), [x, y]);
 		await sleep(travel);
 		const again = await centerIn(el);
