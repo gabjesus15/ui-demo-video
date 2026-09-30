@@ -1,10 +1,10 @@
 # ui-demo-video
 
-**Videos demo verticales de tu app web real, grabados con código.** Un teléfono en escena con tu app funcionando dentro, un dedo que viaja y presiona cada botón, acercamientos de cámara, títulos animados palabra por palabra, una celebración con confeti al confirmar y un cierre con tu marca. Sale en MP4 H.264 listo para Instagram, TikTok, WhatsApp y tu landing.
+**Videos demo verticales u horizontales de tu app web real, grabados con código.** Un teléfono en escena con tu app funcionando dentro, un dedo que viaja y presiona cada botón, acercamientos de cámara, títulos animados palabra por palabra, una celebración con confeti al confirmar y un cierre con tu marca. Sale en MP4 H.264 listo para Instagram, TikTok, WhatsApp y tu landing.
 
 Es una **skill para Claude Code**, pero la guía ([`SKILL.md`](SKILL.md)) está escrita para que cualquier IA o persona pueda seguirla.
 
-> 🇬🇧 **English summary** — A Claude Code skill (and a plain-Markdown guide for any AI) to record vertical 9:16 demo videos of a real web app: phone mockup, animated finger taps, camera zooms, word-by-word captions, confetti on success and a branded outro. Real UI, fake data: every write is blocked or answered with a fake response so no real orders, payments or messages are created. No ffmpeg needed — a frame-by-frame renderer with a virtual clock (rAF, timers, CSS/Web Animations) encodes exact 60 fps H.264 via WebCodecs; a real-time tab-capture mode is also available. Includes QA tools (frame-gap measurement, frame grids), a lightweight web version and SEO guidance (`VideoObject`). Docs are in Spanish.
+> 🇬🇧 **English summary** — A Claude Code skill (and a plain-Markdown guide for any AI) to record vertical 9:16 or horizontal 16:9 demo videos of a real web app: phone mockup, animated finger taps, camera zooms, word-by-word captions, confetti on success and a branded outro. Real UI, fake data: every write is blocked or answered with a fake response so no real orders, payments or messages are created. No ffmpeg needed — a frame-by-frame renderer with a virtual clock (rAF, timers, CSS/Web Animations) encodes exact 60 fps H.264 via WebCodecs; a real-time tab-capture mode is also available. Includes QA tools (frame-gap measurement, frame grids), a lightweight web version and SEO guidance (`VideoObject`). Docs are in Spanish.
 
 ---
 
@@ -57,7 +57,7 @@ Clona el repo donde quieras y dale a la IA el archivo [`SKILL.md`](SKILL.md) com
    ```
    Al final revisa el bloque `--- red ---`: tiene que decir que el envío fue **FALSO** y no mostrar escrituras inesperadas.
 
-   Opciones: `--safe=instagram` (zonas seguras de Reels y TikTok), `--fps=30`, `--tempo=0.9` (todo un 10 % más rápido), `--size=720` (ancho final), `--bitrate=…` y `--live` (motor en tiempo real). Tarda ~3× lo que dura el video.
+   Opciones: `--orientation=horizontal` (16:9, 1920×1080; por defecto vertical 9:16), `--safe=instagram` (zonas seguras de Reels y TikTok), `--fps=30`, `--tempo=0.9` (todo un 10 % más rápido), `--size=720` (ancho final), `--bitrate=…` y `--live` (motor en tiempo real). Tarda ~3× lo que dura el video.
 3. **Revisa la calidad:**
    ```bash
    node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs gaps out/mi-demo.mp4          # tirones

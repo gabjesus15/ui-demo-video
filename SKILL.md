@@ -1,6 +1,6 @@
 ---
 name: ui-demo-video
-description: Graba videos demo verticales (reel 9:16, MP4 H.264) de una app web REAL, con un teléfono en escena, dedo que toca, acercamientos, títulos animados, celebración con confeti y cierre de marca. Úsala cuando pidan "un video de cómo funciona", "demo en video", "grabar el flujo del cliente/panel", "reel del producto" o un video para la landing o redes. Incluye cómo no crear datos reales (pedidos, pagos, mensajes), cómo evitar tirones y clics desviados, control de calidad, versión web liviana e integración en la página con SEO (VideoObject).
+description: Graba videos demo verticales (reel 9:16) u horizontales (16:9) en MP4 H.264 de una app web REAL, con un teléfono en escena, dedo que toca, acercamientos, títulos animados, celebración con confeti y cierre de marca. Úsala cuando pidan "un video de cómo funciona", "demo en video", "grabar el flujo del cliente/panel", "reel del producto" o un video para la landing o redes. Incluye cómo no crear datos reales (pedidos, pagos, mensajes), cómo evitar tirones y clics desviados, control de calidad, versión web liviana e integración en la página con SEO (VideoObject).
 ---
 
 # Videos demo de una app web real
@@ -11,7 +11,7 @@ cada problema de esta guía pasó de verdad y cada solución está probada.
 
 ## Qué se obtiene
 
-- **Formato:** vertical 9:16. Maestra de 1080×1920 a **60 fps exactos** (motor render) y versión web de 720×1280 (~7–8 MB por 40 s).
+- **Formato:** vertical 9:16 (1080×1920) u horizontal 16:9 (1920×1080), a **60 fps exactos** (motor render) y versión web de 720×1280 (~7–8 MB por 40 s).
 - **Estructura** (35–45 s):
   1. Intro de marca: fondo de color, títulos palabra por palabra.
   2. El teléfono entra con la app **real** dentro.
@@ -22,6 +22,10 @@ cada problema de esta guía pasó de verdad y cada solución está probada.
 
 ## Antes de empezar (obligatorio)
 
+0. **Pregunta primero la orientación: ¿vertical u horizontal?** Es lo primero que se decide, porque cambia el encuadre, los títulos y dónde se publica:
+   - **Vertical 9:16** (1080×1920): Reels, TikTok, historias, WhatsApp, landing vista en el celular. Suele ir con `--safe=instagram`.
+   - **Horizontal 16:9** (1920×1080): YouTube, web de escritorio, presentaciones, LinkedIn. `--orientation=horizontal` o `video: { orientation: 'horizontal' }`.
+   Si la persona no sabe, sugiere según dónde lo va a publicar. No asumas vertical sin preguntar.
 1. **Pregunta si es buen momento.** Grabar, ensayar y medir es pesado (Edge sin interfaz, servidor de desarrollo, codificación de video). Si la persona usa la misma PC para otra cosa (jugar, llamadas), avisa antes y agrupa las corridas.
 2. **¿La app escribe en una base real?** Casi siempre sí, incluso en local. Identifica **cada** escritura del recorrido antes de grabar (ver «Seguridad»). Si hay dudas, no grabes el paso final.
 3. **Requisitos:** Node, `playwright` en el proyecto y **Microsoft Edge o Google Chrome** instalados. El Chromium de Playwright no trae H.264; usa `browserChannel: 'chrome'` en el escenario si no hay Edge. No se necesita ffmpeg.
@@ -44,7 +48,7 @@ cada problema de esta guía pasó de verdad y cada solución está probada.
 4. Lee el bloque «--- red ---» del log: tiene que decir que los envíos fueron **FALSOS** y no mostrar escrituras inesperadas.
 5. Control de calidad (ver abajo), luego la versión web y la portada con `qa-tools.cjs`.
 
-Opciones: `--fps=30|60`, `--safe=instagram`, `--tempo=0.9` (todo un 10 % más rápido), `--size=720`, `--bitrate=…` y `--live`.
+Opciones: `--orientation=horizontal`, `--fps=30|60`, `--safe=instagram`, `--tempo=0.9` (todo un 10 % más rápido), `--size=720`, `--bitrate=…` y `--live`.
 
 ## Los dos motores
 
@@ -118,6 +122,14 @@ node <skill>/scripts/record-demo.cjs escenario.cjs out master                   
 node <skill>/scripts/record-demo.cjs escenario.cjs out master --safe=instagram   # Reels / TikTok
 node <skill>/scripts/record-demo.cjs escenario.cjs out master --live --fps=30    # motor en vivo
 ```
+
+## Horizontal (16:9)
+
+Con `--orientation=horizontal` la escena pasa a 1920×1080: el teléfono queda a la derecha y los títulos, grandes y en
+hasta dos líneas, a la izquierda. **El guion no cambia**: `cam`, `focus` y `tap` trabajan siempre en el espacio vertical
+de siempre (540×960) y el motor lo traduce (achica el teléfono y lo corre a la derecha). La franja de títulos (`band`) y
+las zonas seguras de Instagram no aplican en horizontal. Los acercamientos fuertes (escala > 1) recortan el teléfono
+arriba y abajo, que en 16:9 se lee como un zoom normal.
 
 ## Anuncios: voz en off, gancho y llamado a la acción
 
@@ -228,4 +240,4 @@ node <skill>/scripts/qa-tools.cjs poster public/videos/menu-digital-pedido-onlin
 
 Pega esto en un chat nuevo (Claude Code u otra IA con acceso al proyecto):
 
-> Usa la skill `ui-demo-video` (o lee su `SKILL.md` y sus `scripts/`). Quiero un video demo vertical de [flujo] en [URL local]. La app escribe en una base real: identifica cada escritura del recorrido y falsifícala o bloquéala antes de grabar. Explora selectores con capturas sueltas, arma el escenario a partir de `example-scenario.cjs`, avísame antes de cada corrida pesada, graba la maestra, mide los tirones, revisa los toques en fotogramas y entrega también la versión web con su portada.
+> Usa la skill `ui-demo-video` (o lee su `SKILL.md` y sus `scripts/`). Quiero un video demo [vertical u horizontal] de [flujo] en [URL local]. La app escribe en una base real: identifica cada escritura del recorrido y falsifícala o bloquéala antes de grabar. Explora selectores con capturas sueltas, arma el escenario a partir de `example-scenario.cjs`, avísame antes de cada corrida pesada, graba la maestra, mide los tirones, revisa los toques en fotogramas y entrega también la versión web con su portada.

@@ -39,8 +39,16 @@ const MODE = modeArg === 'web' ? 'web' : 'master';
 const ENGINE = flags.live || S.video?.engine === 'live' ? 'live' : 'render';
 
 // Escena en CSS px; la resolución real sale del device scale factor.
-const W = 540;
-const H = 960;
+// Orientación: vertical 9:16 (Reels, TikTok, WhatsApp) u horizontal 16:9 (YouTube, web de escritorio, presentaciones).
+const HORIZ = (flags.orientation || S.video?.orientation || 'vertical') === 'horizontal';
+const W = HORIZ ? 960 : 540;
+const H = HORIZ ? 540 : 960;
+// Los guiones y la cámara trabajan siempre en un espacio vertical virtual de 540×960 (cam, focus, tap).
+// En horizontal, la escena lo traduce: el teléfono se achica (K) y se corre a la derecha (OX); los títulos van a la izquierda.
+const VW = 540;
+const VH = 960;
+const K = HORIZ ? 0.5625 : 1;
+const OX = HORIZ ? 205 : 0;
 // Ancho final: 1080 (master) o 720 (web); --size=720 fuerza el ancho.
 const DSF = flags.size ? Number(flags.size) / W : MODE === 'web' ? 4 / 3 : 2;
 // render: 60 exactos por defecto. live: 30 (a 60 el codificador en vivo bota cuadros).
@@ -49,14 +57,14 @@ const FPS = Number(flags.fps || S.video?.fps || (ENGINE === 'render' ? 60 : 30))
 const TEMPO = Number(flags.tempo || S.video?.tempo || 1);
 // Zonas seguras de redes: Instagram tapa arriba (~12 %, «Reels» y cámara), abajo (~20 %, nombre,
 // descripción, música) y el costado derecho (botones). Se bajan los títulos y la escena se achica y sube.
-const SAFE = flags.safe || S.video?.safe || null;
+const SAFE = HORIZ ? null : flags.safe || S.video?.safe || null;
 // Franja de títulos (video.band): el título vive arriba y la cámara nunca mete el teléfono debajo de él.
-const BAND = !!(flags.band || S.video?.band);
+const BAND = !HORIZ && !!(flags.band || S.video?.band);
 const PERSP_SAFE = SAFE === 'instagram' && !BAND ? ';transform:translate(-14px,-34px) scale(.84);transform-origin:50% 42%' : '';
 const CAP_TOP = SAFE === 'instagram' ? 118 : 34;
 // Borde inferior de la franja (título de ~66 px + aire) y borde inferior seguro (Instagram tapa ~22 % abajo).
 const BAND_BOTTOM = CAP_TOP + 80;
-const SAFE_BOTTOM = SAFE === 'instagram' ? Math.round(H * 0.78) : H - 40;
+const SAFE_BOTTOM = SAFE === 'instagram' ? Math.round(VH * 0.78) : VH - 40;
 // Efectos de sonido: por defecto solo si hay voz en off (un video mudo de landing no los necesita).
 const SFX = S.video?.sfx ?? !!S.voice;
 // Sin apuro de tiempo real, render puede darse más calidad.
@@ -207,13 +215,24 @@ html,body{width:${W}px;height:${H}px;overflow:hidden;background:${brand.accent}}
 #ticket .tot{display:flex;justify-content:space-between;font-weight:700;font-size:24px}
 #outro .cta{margin-top:34px;background:#fff;color:${brand.accent};font-weight:600;font-size:24px;padding:14px 28px;border-radius:999px;box-shadow:0 18px 40px -16px rgba(0,0,0,.45);opacity:0;transform:translateY(14px) scale(.92);transition:opacity ${d(0.45)} ${d(1)},transform ${d(0.6)} cubic-bezier(.2,1.3,.3,1) ${d(1)}}
 #outro.in .cta{opacity:1;transform:none}
-/* Solo motor live: un píxel que cambia en cada cuadro, porque la captura solo emite fotogramas si algo cambia. */
+${HORIZ ? `/* Horizontal: título a la izquierda, grande; el teléfono queda a la derecha. */
+#cap{left:56px;top:40%;font-size:58px;line-height:1.02;white-space:normal;max-width:430px;transform:translateY(-12px) scale(.94);transform-origin:0 50%}
+#cap.on{transform:none}
+#hook .clock{top:40px}
+#hook .chat{left:50%;right:auto;width:560px;margin-left:-280px;top:150px;bottom:24px}
+#hook .counter{top:120px;right:calc(50% - 280px)}
+#hook .ht{font-size:84px}
+#celebrate{padding-top:40px}
+#chip{top:auto;bottom:70px;left:34%}
+#ticket{top:30%;left:34%}
+#intro .big,#outro .big{max-width:880px}
+` : ''}/* Solo motor live: un píxel que cambia en cada cuadro, porque la captura solo emite fotogramas si algo cambia. */
 #tick{position:absolute;right:0;bottom:0;width:2px;height:2px;z-index:20;pointer-events:none;background:#000;opacity:.02;animation:tick .1s steps(2) infinite}
 @keyframes tick{50%{opacity:.03}}
 canvas#fx{position:absolute;inset:0;width:100%;height:100%;z-index:9;pointer-events:none}
 </style></head><body><div id="stage">
 <div id="scene"></div><div id="celebrate-bg"></div>
-<div id="persp"><div id="cam" style="transform:translate3d(0,1150px,0) scale(.9)"><div id="phone"><div id="screen">
+<div id="persp"><div id="cam" style="transform:translate3d(${OX}px,${1150 * K}px,0) scale(${0.9 * K})"><div id="phone"><div id="screen">
 <iframe id="main" src="about:blank" allow="geolocation"></iframe><iframe id="alt" src="about:blank" allow="geolocation"></iframe></div></div></div></div>
 <div id="cap"></div><div id="finger"></div>${ENGINE === 'live' ? '<div id="tick"></div>' : ''}
 <div id="celebrate" class="card"><div class="big" id="celebrateText"></div><p>${copy.celebrateSub}</p></div>
@@ -247,9 +266,11 @@ window.ticket=(t)=>{const el=$('ticket');if(!t){el.classList.remove('on');return
   const tot=document.createElement('div');tot.className='tot';const x=document.createElement('span');x.textContent='Total';const y=document.createElement('b');y.textContent=t.total||'';tot.append(x,y);
   el.append(sm,h,ul,tot);void el.offsetWidth;el.classList.add('on');};
 /* cam(x, y, escala, { ms, ry, rx }) — ms cambia la duración solo de este movimiento. */
-window.cam=(x,y,s,o={})=>{const c=$('cam');c.style.transitionDuration=((o.ms||1000)*T)+'ms';c.style.transform='translate3d('+x+'px,'+y+'px,0) scale('+s+') rotateY('+(o.ry||0)+'deg) rotateX('+(o.rx||0)+'deg)';};
+/* Espacio virtual vertical → escena (en horizontal el teléfono se achica y se corre a la derecha). */
+const camT=(x,y,s,ry=0,rx=0)=>'translate3d('+(x*${K}+${OX})+'px,'+(y*${K})+'px,0) scale('+(s*${K})+') rotateY('+ry+'deg) rotateX('+rx+'deg)';
+window.cam=(x,y,s,o={})=>{const c=$('cam');c.style.transitionDuration=((o.ms||1000)*T)+'ms';c.style.transform=camT(x,y,s,o.ry||0,o.rx||0);};
 /* Sin transición (para dejar el teléfono dibujado antes de grabar). */
-window.camInstant=(t)=>{const c=$('cam');c.style.transition='none';c.style.transform=t;void c.offsetWidth;requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.transition='';}));};
+window.camInstant=(x,y,s)=>{const c=$('cam');c.style.transition='none';c.style.transform=camT(x,y,s);void c.offsetWidth;requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.transition='';}));};
 /* Cambio de título: las palabras viejas salen hacia arriba, la píldora se ajusta al ancho nuevo y las nuevas suben. */
 window.caption=(text,key=[])=>{const c=$('cap');
   if(!text){c.classList.remove('on');return;}
@@ -472,9 +493,9 @@ const readBlob = async (pg) => {
 	}
 	// Precalentar la primera aparición del teléfono: se ubica un momento en su posición habitual (tapado
 	// por la intro) para que el navegador ya lo tenga dibujado. Sin esto, la entrada da un tirón (~0,25 s).
-	await page.evaluate(() => window.camInstant('translate3d(0px,60px,0) scale(.84)'));
+	await page.evaluate(() => window.camInstant(0, 60, 0.84));
 	await realSleep(1200);
-	await page.evaluate(() => window.camInstant('translate3d(0px,1150px,0) scale(.9)'));
+	await page.evaluate(() => window.camInstant(0, 1150, 0.9));
 	await realSleep(1500);
 
 	// ---- Reloj y captura ----
@@ -564,7 +585,7 @@ const readBlob = async (pg) => {
 		/** cam(x, y, escala, { ms, ry, rx, free }). Con franja de títulos, el borde superior del teléfono no sube de ella (free: sin límite). */
 		cam: (x, y, s, o = {}, rx = 0) => {
 			const opts = typeof o === 'number' ? { ry: o, rx } : o;
-			if (BAND && captionOn && !opts.free) y = Math.max(y, BAND_BOTTOM - H / 2 + 432 * s);
+			if (BAND && captionOn && !opts.free) y = Math.max(y, BAND_BOTTOM - VH / 2 + 432 * s);
 			camState = { x, y, s };
 			if (process.env.CAM_LOG) console.log(`cam ${nowVideo().toFixed(2)}s x=${x} y=${Math.round(y)} s=${s} ms=${opts.ms ?? 1000}${captionOn ? ' [título]' : ''}`);
 			return page.evaluate(([a, b, c, op]) => window.cam(a, b, c, op), [x, y, s, opts]);
@@ -573,7 +594,7 @@ const readBlob = async (pg) => {
 			captionOn = !!text;
 			await page.evaluate(([t, k]) => window.caption(t, k), [text, key]);
 			// Si el teléfono estaba metido en la franja, baja a su lugar.
-			if (BAND && captionOn && camState.y < BAND_BOTTOM - H / 2 + 432 * camState.s) await api.cam(camState.x, camState.y, camState.s, { ms: 600 });
+			if (BAND && captionOn && camState.y < BAND_BOTTOM - VH / 2 + 432 * camState.s) await api.cam(camState.x, camState.y, camState.s, { ms: 600 });
 		},
 		intro: () => page.evaluate(() => window.intro()),
 		introOut: () => page.evaluate(() => window.introOut()),
@@ -663,20 +684,20 @@ const readBlob = async (pg) => {
 			// Centro de la ventana libre (entre la franja y el borde seguro de abajo); si el elemento está muy abajo
 			// en la pantalla de la app, el teléfono se achica lo necesario para que no suba a la franja.
 			const top = captionOn ? BAND_BOTTOM : SAFE === 'instagram' ? 118 : 30;
-			let want = at != null ? at * H : (top + SAFE_BOTTOM) / 2;
+			let want = at != null ? at * VH : (top + SAFE_BOTTOM) / 2;
 			// Si con esa escala el teléfono se metería en la franja, se apoya justo bajo ella (el elemento baja).
 			// Solo si así se saldría de la zona segura de abajo se achica, y nunca por debajo de minScale (legible).
 			if (want - scale * (y + 10) < top) {
-				const lowest = SAFE === 'instagram' ? H * 0.84 : H - 30;
+				const lowest = SAFE === 'instagram' ? VH * 0.84 : VH - 30;
 				if (top + scale * (y + 10) > lowest) scale = Math.max(minScale, (lowest - top) / (y + 10));
 				want = top + scale * (y + 10);
 			}
-			const ty = Math.round(want - H / 2 - scale * (y - 422));
+			const ty = Math.round(want - VH / 2 - scale * (y - 422));
 			return api.cam(x, ty, +scale.toFixed(3), { ms });
 		}
 		at = at ?? 0.55;
 		// En la cámara: pantalla del teléfono arriba a la izquierda en (-195, -422) respecto del centro de la escena.
-		const ty = Math.round(at * H - H / 2 - scale * (y - 422));
+		const ty = Math.round(at * VH - VH / 2 - scale * (y - 422));
 		const lim = 432 * scale; // nunca más allá del borde del teléfono
 		return api.cam(x, Math.max(-lim, Math.min(lim, ty)), scale, { ms });
 	};
@@ -686,11 +707,11 @@ const readBlob = async (pg) => {
 	 * Zona visible: bajo la franja de títulos y por encima de lo que tapa Instagram abajo.
 	 */
 	const inView = ({ x, y }) => {
-		const sx = W / 2 + camState.x + camState.s * (x - 195);
-		const sy = H / 2 + camState.y + camState.s * (y - 422);
+		const sx = VW / 2 + camState.x + camState.s * (x - 195);
+		const sy = VH / 2 + camState.y + camState.s * (y - 422);
 		const top = BAND && captionOn ? BAND_BOTTOM : SAFE === 'instagram' ? 118 : 16;
-		const bottom = SAFE === 'instagram' ? H * 0.86 : H - 16;
-		return sx > 24 && sx < W - 24 && sy > top + 12 && sy < bottom;
+		const bottom = SAFE === 'instagram' ? VH * 0.86 : VH - 16;
+		return sx > 24 && sx < VW - 24 && sy > top + 12 && sy < bottom;
 	};
 
 	/** El dedo viaja al objetivo, se vuelve a medir (pudo moverse), presiona y recién ahí hace clic. */
