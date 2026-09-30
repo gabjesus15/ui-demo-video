@@ -566,6 +566,7 @@ const readBlob = async (pg) => {
 			const opts = typeof o === 'number' ? { ry: o, rx } : o;
 			if (BAND && captionOn && !opts.free) y = Math.max(y, BAND_BOTTOM - H / 2 + 432 * s);
 			camState = { x, y, s };
+			if (process.env.CAM_LOG) console.log(`cam ${nowVideo().toFixed(2)}s x=${x} y=${Math.round(y)} s=${s} ms=${opts.ms ?? 1000}${captionOn ? ' [título]' : ''}`);
 			return page.evaluate(([a, b, c, op]) => window.cam(a, b, c, op), [x, y, s, opts]);
 		},
 		caption: async (text, key = []) => {
