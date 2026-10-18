@@ -1,6 +1,6 @@
 ---
 name: ui-demo-video
-description: Graba videos demo verticales (reel 9:16) u horizontales (16:9) en MP4 H.264 de una app web REAL, con un teléfono en escena, dedo que toca, acercamientos, títulos animados, celebración con confeti y cierre de marca. Úsala cuando pidan "un video de cómo funciona", "demo en video", "grabar el flujo del cliente/panel", "reel del producto" o un video para la landing o redes. Incluye cómo no crear datos reales (pedidos, pagos, mensajes), cómo evitar tirones y clics desviados, control de calidad, versión web liviana e integración en la página con SEO (VideoObject).
+description: Graba videos demo verticales (reel 9:16) u horizontales (16:9) en MP4 H.264 de una app web REAL, con un teléfono en escena, dedo que toca, acercamientos, títulos animados, celebración con confeti y cierre de marca. Úsala cuando pidan "un video de cómo funciona", "demo en video", "grabar el flujo del cliente/panel", "reel del producto" o un video para la landing o redes. Incluye cómo no crear datos reales (pedidos, pagos, mensajes), cómo evitar tirones y clics desviados, control de calidad, versión web liviana e integración en la página con SEO (VideoObject). También arma el plan de contenido semanal de las redes (qué grabar, qué capturar, qué post hacer, qué decide el equipo y el calendario día a día) y lo entrega como infografía PNG/PDF con la marca; úsala cuando pidan "plan de contenido", "qué publico esta semana", "calendario de redes" o "comerse las redes".
 ---
 
 # Videos demo de una app web real
@@ -30,6 +30,42 @@ cada problema de esta guía pasó de verdad y cada solución está probada.
 2. **¿La app escribe en una base real?** Casi siempre sí, incluso en local. Identifica **cada** escritura del recorrido antes de grabar (ver «Seguridad»). Si hay dudas, no grabes el paso final.
 3. **Requisitos:** Node, `playwright` en el proyecto y **Microsoft Edge o Google Chrome** instalados. El Chromium de Playwright no trae H.264; usa `browserChannel: 'chrome'` en el escenario si no hay Edge. No se necesita ffmpeg.
 4. **App corriendo** (p. ej. `http://localhost:3000`). Mejor con build de producción, porque el modo desarrollo compila al vuelo y congela; si no, el ensayo lo compensa.
+
+## Plan de contenido semanal (antes de grabar una serie)
+
+Cuando piden más de un video, o «contenido para redes» sin un flujo definido, primero se arma el plan de la semana
+y se entrega como infografía con la marca (como la que haría un diseñador: objetivo y métricas, qué capturar, qué
+grabar, qué decide el equipo y el calendario día a día). Para un solo video con flujo claro, sáltalo.
+
+1. **Insumos (pregunta solo lo que falte):** público y su dolor; objetivo de la semana con 4 métricas (seguidores,
+   alcance, interacción, pedidos o demos); canales (Reels/TikTok, historias, LinkedIn, WhatsApp, landing); qué ya
+   está hecho (videos grabados, capturas, casos de clientes con permiso); promo vigente y fechas especiales.
+2. **Pilares fijos**, uno por pieza y alternados: **Producto** (lo que la app hace, siempre la app real) ·
+   **Educación** (cómo funciona, qué cuesta no tenerlo) · **Prueba social** (clientes reales, con permiso y en sus
+   palabras) · **Detrás del equipo** (cómo se construye).
+3. **Tipos de pieza y con qué se hace aquí:** *Reel demo* → un escenario de esta skill; *Carrusel / post gráfico* →
+   capturas (`qa-tools.cjs frames` o capturas sueltas a 390×844) y una portada; *Historia* → un fotograma o la pieza
+   gráfica vertical; *Decisión del equipo* → lo que falta definir (promo, caso a mostrar, precio, novedad). Una
+   pieza por día; dos reels seguidos nunca repiten el mismo flujo.
+4. **Reglas de honestidad:** todo lo que se ve es la app real con datos falsos; nada que el producto no haga hoy;
+   ningún local real sin su permiso.
+5. **Escribe el plan** copiando `templates/plan-contenido.cjs` (todos los campos comentados) o el ejemplo real
+   `examples/godcode/semana-1.cjs`. Las rutas de imágenes son relativas al archivo del plan; `**palabra**` la pinta
+   del color de la marca. Si no hay página 2 (línea gráfica, pilares, ejemplos de reels, día a día con tips), quítala.
+6. **Genera y revisa:**
+   ```bash
+   node <skill>/scripts/content-plan.cjs mi-plan.cjs out/plan            # <nombre>-1.png, <nombre>-2.png y <nombre>.pdf
+   node <skill>/scripts/content-plan.cjs mi-plan.cjs out/plan --only=1   # solo una página; --scale=1 para ir rápido
+   ```
+   Se corre desde una carpeta con `playwright` (la raíz del proyecto) y necesita Edge o Chrome
+   (`--channel=chrome`) e internet para las fuentes. Mira el PNG antes de enviarlo: que ningún texto se corte, que las
+   miniaturas muestren lo importante (se recortan desde arriba) y que las etiquetas de tipo quepan en una línea.
+7. **Del plan al escenario:** cada reel del calendario se vuelve `scripts/video/<nombre>.cjs` a partir de
+   `example-scenario.cjs`: el título del día es el `caption`, el gancho es `copy.hook`, el llamado a la acción es
+   `copy.cta` y las escrituras van en `fakes`. Al grabarlo, anota en el plan que ya está hecho.
+
+**Dónde vive cada cosa:** el generador y la plantilla en esta skill; el plan de cada marca con sus recursos en una
+carpeta propia (el de GodCode está en `examples/godcode/`, con la marca y las capturas en `examples/godcode/assets/`).
 
 ## Cómo se usa
 
@@ -241,3 +277,7 @@ node <skill>/scripts/qa-tools.cjs poster public/videos/menu-digital-pedido-onlin
 Pega esto en un chat nuevo (Claude Code u otra IA con acceso al proyecto):
 
 > Usa la skill `ui-demo-video` (o lee su `SKILL.md` y sus `scripts/`). Quiero un video demo [vertical u horizontal] de [flujo] en [URL local]. La app escribe en una base real: identifica cada escritura del recorrido y falsifícala o bloquéala antes de grabar. Explora selectores con capturas sueltas, arma el escenario a partir de `example-scenario.cjs`, avísame antes de cada corrida pesada, graba la maestra, mide los tirones, revisa los toques en fotogramas y entrega también la versión web con su portada.
+
+Para el plan de la semana:
+
+> Usa la skill `ui-demo-video`. Arma el plan de contenido de la semana [N] de [marca] para [redes], a partir de `templates/plan-contenido.cjs` (o del plan de la semana anterior) y de lo que ya está grabado o capturado. Pregúntame solo lo que falte (promo vigente, casos con permiso, fechas), genera la infografía con `scripts/content-plan.cjs`, revisa el PNG y después convertimos cada reel del calendario en su escenario.

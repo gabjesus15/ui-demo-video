@@ -15,6 +15,7 @@ Es una **skill para Claude Code**, pero la guía ([`SKILL.md`](SKILL.md)) está 
 - **60 fps exactos.** El motor render congela el reloj de la escena y de la app, avanza cuadro a cuadro y codifica cada foto con WebCodecs: cero cuadros perdidos aunque la PC esté ocupada, y las esperas de red de tu app no se ven. También hay un motor en vivo (`--live`).
 - **Toques precisos.** El dedo sigue al botón en cada cuadro aunque la cámara o un panel se muevan.
 - **Sin ffmpeg ni editores.** Solo Node, Playwright y Edge o Chrome.
+- **También el plan de la semana.** Antes de grabar una serie, arma el plan de contenido (qué capturar, qué grabar, qué decide el equipo y el calendario día a día) y lo entrega como infografía PNG/PDF con tu marca, lista para mandar por WhatsApp.
 
 ## Requisitos
 
@@ -68,6 +69,11 @@ Clona el repo donde quieras y dale a la IA el archivo [`SKILL.md`](SKILL.md) com
    node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs web out/mi-demo.mp4 public/videos/demo.mp4 720 1800000
    node ~/.claude/skills/ui-demo-video/scripts/qa-tools.cjs poster public/videos/demo.mp4 public/videos/demo.jpg 4.2
    ```
+5. **Plan de contenido de la semana** (opcional, antes de una serie): copia `templates/plan-contenido.cjs`, llénalo y genera la infografía (PNG por página + PDF):
+   ```bash
+   node ~/.claude/skills/ui-demo-video/scripts/content-plan.cjs mi-plan.cjs out/plan
+   ```
+   Un plan real, con su marca y sus capturas: `examples/godcode/semana-1.cjs`.
 
 ## Cómo se escribe un escenario
 
@@ -146,12 +152,17 @@ La regla de oro: **si tu app escribe en una base real, ninguna escritura del rec
 ui-demo-video/
 ├── SKILL.md                    guía completa (la lee Claude u otra IA)
 ├── README.md
-└── scripts/
-    ├── record-demo.cjs         motor de grabación (render y live)
-    ├── virtual-time.cjs        reloj virtual del motor render
-    ├── voiceover.cjs           voz en off con ElevenLabs (una pista por frase, con caché)
-    ├── example-scenario.cjs    escenario de ejemplo comentado
-    └── qa-tools.cjs            tirones, fotogramas, versión web y portada
+├── scripts/
+│   ├── record-demo.cjs         motor de grabación (render y live)
+│   ├── virtual-time.cjs        reloj virtual del motor render
+│   ├── voiceover.cjs           voz en off con ElevenLabs (una pista por frase, con caché)
+│   ├── example-scenario.cjs    escenario de ejemplo comentado
+│   ├── qa-tools.cjs            tirones, fotogramas, versión web y portada
+│   └── content-plan.cjs        plan de contenido semanal → infografía PNG/PDF con la marca
+├── templates/
+│   └── plan-contenido.cjs      plantilla del plan, con todos los campos comentados
+└── examples/
+    └── godcode/                plan real de Gcode POS (semana 1) con su marca y capturas
 ```
 
 ## Licencia
